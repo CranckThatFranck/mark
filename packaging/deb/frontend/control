@@ -1,15 +1,7 @@
-echo "##active_line39##"
 Package: jarvis-frontend
-echo "##active_line40##"
 Version: 1.0.0
-echo "##active_line41##"
 Architecture: all
-echo "##active_line42##"
 Maintainer: Gaia Works
-echo "##active_line43##"
 Depends: python3, python3-customtkinter
-echo "##active_line44##"
 Description: Mark Alfa Frontend (UI)
-echo "##active_line45##"
  Interface gráfica do Mark Alfa.
-echo "##active_line46##"
