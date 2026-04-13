@@ -52,10 +52,27 @@ async def handle_action(ws, data: dict):
         })
         await ws.send(resp)
         
+
+    elif action == "update_config":
+        new_config = payload.get("config", {})
+        if "model" in new_config and new_config["model"] in SUPPORTED_MODELS:
+            global_state.model = new_config["model"]
+        if "mode" in new_config and new_config["mode"] in ["agent", "plan"]:
+            global_state.mode = new_config["mode"]
+            
+        from config_manager import save_config
+        save_config({"mode": global_state.mode, "model": global_state.model})
+        
+        await broadcast_state()
+        resp = ProtocolParser.build_action_response("update_config", True)
+        await ws.send(resp)
+        
     elif action == "change_model":
         model = payload.get("model")
         if model in SUPPORTED_MODELS:
             global_state.model = model
+            from config_manager import save_config
+            save_config({"mode": global_state.mode, "model": global_state.model})
             await broadcast_state()
             resp = ProtocolParser.build_action_response("change_model", True)
         else:
@@ -66,12 +83,14 @@ async def handle_action(ws, data: dict):
         mode = payload.get("mode")
         if mode in ["agent", "plan"]:
             global_state.mode = mode
+            from config_manager import save_config
+            save_config({"mode": global_state.mode, "model": global_state.model})
             await broadcast_state()
             resp = ProtocolParser.build_action_response("change_mode", True)
         else:
             resp = ProtocolParser.build_action_response("change_mode", False, error="Modo inválido")
         await ws.send(resp)
-        
+
     # Mais acoes serao implementadas conforme a TODOList...
     else:
         logger.warning(f"Ação desconhecida ou não implementada: {action}")

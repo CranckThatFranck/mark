@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
 from config import DEFAULT_MODEL
+from config_manager import load_config, save_config
 
 @dataclass
 class BackendState:
@@ -27,4 +28,5 @@ class BackendState:
         self.interpreter_pgid = None
 
 # Instância global do estado para ser compartilhada
-global_state = BackendState()
+initial_cfg = load_config()
+global_state = BackendState(mode=initial_cfg.get("mode", "agent"), model=initial_cfg.get("model", DEFAULT_MODEL))
