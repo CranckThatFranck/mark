@@ -1,0 +1,66 @@
+### Instruções de leitura e movimentação do documento:
+**Inicie a leitura dos iténs em A fazer**: Está será sua lista de to-do divido em itens de ações. Cada workiten será contido em uma linha iniciado em - e finalizado em . 
+** No ## Fazendo**: Deverá ser para onde você moverá o itém que você começou a trabalhar, para que possamos saber o que falta fazer e o que está sendo feito.
+** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
+
+## Feito
+- Consolidar a documentação de contexto e contrato operacional do Mark Alfa.
+- Definir documentação de roadmap, critérios de aceite, diretórios, persistência, empacotamento, backend, frontend e checklist de release.
+
+## Fazendo
+
+## A fazer
+- Revisar rapidamente todos os documentos finais do AgentContext já gerados e confirmar consistência entre eles.
+- Criar a estrutura inicial de diretórios do repositório conforme a documentação.
+- Criar o arquivo src/backend/config.py.
+- Implementar as constantes principais do backend em config.py.
+- Implementar a resolução de caminhos do ambiente atual e do produto instalável futuro em config.py.
+- Implementar a detecção de HOME, Documents, Documentos e fallback para o contexto do produto instalável.
+- Declarar o modelo padrão e a lista inicial de modelos suportados no backend.
+- Implementar a preparação da estrutura mínima de contexto necessária ao backend.
+- Criar o arquivo src/backend/server.py.
+- Implementar o chassi inicial do servidor WebSocket.
+- Implementar o envio de sync_state ao conectar.
+- Implementar o parser e roteador básico de ações JSON.
+- Implementar as ações básicas healthcheck, get_status, get_models e get_config.
+- Criar o modelo de estado interno do backend.
+- Implementar persistência de configuração do backend.
+- Implementar a ação update_config.
+- Criar o invólucro controlado do Open Interpreter em src/backend/agent_runner.py.
+- Integrar o backend ao agent_runner sem depender da CLI solta do Open Interpreter.
+- Implementar a action execute_task.
+- Implementar o fluxo de mensagens user, status, message, code, console e action_response.
+- Implementar o modo Plan.
+- Implementar o modo Agent.
+- Implementar o retorno automático para agent após conclusão da tarefa.
+- Implementar o isolamento de subprocessos por PGID.
+- Implementar rastreamento de tarefa ativa com PID e PGID.
+- Implementar a action interrupt.
+- Implementar o kill switch real com interrupção do grupo de processos.
+- Implementar recuperação segura pós-interrupção.
+- Implementar logs e observabilidade mínima do backend.
+- Criar unit file do systemd para o backend.
+- Validar start, stop, restart e status do backend via systemd.
+- Criar estrutura de packaging do backend para .rpm.
+- Criar estrutura de packaging do backend para .deb.
+- Validar instalação do backend em /opt/jarvis/backend.
+- Criar a estrutura inicial do frontend em src/frontend.
+- Definir oficialmente a stack do frontend.
+- Criar o cliente WebSocket do frontend.
+- Implementar a janela principal do frontend.
+- Implementar a tela principal com chat, seletor de modo, seletor de modelo e kill switch.
+- Implementar a tela de configurações do frontend.
+- Implementar exibição de message, code, console, status e system no frontend.
+- Implementar envio de execute_task, change_model, interrupt, get_status, get_config e update_config no frontend.
+- Implementar reconexão e tolerância a falhas no frontend.
+- Implementar persistência visual mínima do frontend.
+- Criar estrutura de packaging do frontend para .rpm.
+- Criar estrutura de packaging do frontend para .deb.
+- Validar instalação do frontend em /opt/jarvis/frontend.
+- Executar testes de integração ponta a ponta entre frontend e backend.
+- Executar checklist de aceite do backend.
+- Executar checklist de aceite do frontend.
+- Executar checklist final de release do Mark Alfa.
+- Atualizar README.md final do projeto com requisitos, instalação, operação e troubleshooting.
+- Revisar TODOList, memória persistente e pivotagens antes do marco final.
+- Realizar commit e push do primeiro marco executável do Mark Alfa.
