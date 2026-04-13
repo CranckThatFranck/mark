@@ -1,0 +1,7 @@
+#!/bin/sh
+set -e
+if [ "$1" = "remove" ]; then
+    systemctl stop jarvis-backend.service || true
+    systemctl disable jarvis-backend.service || true
+fi
+exit 0

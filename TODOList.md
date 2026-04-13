@@ -3,6 +3,11 @@
 ** No ## Fazendo**: Deverá ser para onde você moverá o itém que você começou a trabalhar, para que possamos saber o que falta fazer e o que está sendo feito.
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 ## Feito
+- Criar scripts e arquivos necessários de pós-instalação do backend, se aplicável.
+- Criar estrutura de packaging do backend para .deb.
+- Criar estrutura de packaging do backend para .rpm.
+- Criar launcher e arquivo .desktop do frontend quando aplicável.
+- Criar assets mínimos do frontend, incluindo ícone e recursos necessários para empacotamento.
 - Implementar estado visual coerente com o backend no frontend.
 - Implementar persistência visual mínima do frontend.
 - Implementar reconexão e tolerância a falhas no frontend.
@@ -53,7 +58,11 @@
 - Consolidar a documentação de contexto e contrato operacional do Mark Alfa.
 - Definir documentação de roadmap, critérios de aceite, diretórios, persistência, empacotamento, backend, frontend e checklist de release.
 ## Fazendo
-- Criar scripts e arquivos necessários de pós-instalação do backend, se aplicável.
+- Validar instalação do frontend em /opt/jarvis/frontend.
+- Criar scripts e arquivos necessários de pós-instalação do frontend, se aplicável.
+- Criar estrutura de packaging do frontend para .deb.
+- Criar estrutura de packaging do frontend para .rpm.
+- Validar instalação do backend em /opt/jarvis/backend.
 - Criar estrutura de packaging do backend para .deb.
 - Criar estrutura de packaging do backend para .rpm.
 - Criar launcher e arquivo .desktop do frontend quando aplicável.
@@ -81,12 +90,8 @@
 ## A fazer
 - Criar o modelo de estado interno do backend.
 - Criar unit file do systemd para o backend.
-- Validar instalação do backend em /opt/jarvis/backend.
 - Definir oficialmente a stack do frontend.
 - Implementar exibição de message, code, console, status e system no frontend.
-- Criar estrutura de packaging do frontend para .rpm.
-- Criar estrutura de packaging do frontend para .deb.
-- Validar instalação do frontend em /opt/jarvis/frontend.
 - Executar testes de integração ponta a ponta entre frontend e backend.
 - Executar checklist de aceite do backend.
 - Executar checklist de aceite do frontend.
