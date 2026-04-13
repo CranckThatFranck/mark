@@ -4,24 +4,14 @@
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 
 ## Feito
-- Concluir o marco final da versão simples e final do Mark Alfa.
 - Validar start, stop, restart e status do backend via systemd.
 - Validar instalação do backend em /opt/jarvis/backend.
 - Corrigir eventuais falhas encontradas durante os testes finais.
 - Executar nova rodada de validação final após correções.
-- Revisar o README final, TODOList, memória persistente e pivotagens após a validação completa.
 - Executar checklist de aceite do backend.
 - Executar checklist de aceite do frontend.
 - Executar testes de fumaça do frontend.
-- Atualizar o README.md do projeto com instruções de operação, status, interrupção e troubleshooting.
-- Atualizar o README.md do projeto com instruções de instalação do frontend.
-- Atualizar o README.md do projeto com instruções de instalação do backend.
-- Atualizar o README.md do projeto com requisitos, dependências e visão geral da aplicação.
 - Criar scripts e arquivos necessários de pós-instalação do frontend, se aplicável.
-- Criar estrutura de packaging do frontend para .deb.
-- Criar estrutura de packaging do frontend para .rpm.
-- Criar estrutura de packaging do backend para .deb.
-- Criar estrutura de packaging do backend para .rpm.
 - Criar launcher e arquivo .desktop do frontend quando aplicável.
 - Criar assets mínimos do frontend, incluindo ícone e recursos necessários para empacotamento.
 - Implementar persistência visual mínima do frontend.
@@ -47,3 +37,13 @@
 ## Fazendo
 
 ## A fazer
+- Criar estrutura de packaging do frontend para .deb.
+- Criar estrutura de packaging do frontend para .rpm.
+- Criar estrutura de packaging do backend para .deb.
+- Criar estrutura de packaging do backend para .rpm.
+- Atualizar o README.md do projeto com instruções de instalação do frontend.
+- Atualizar o README.md do projeto com instruções de instalação do backend.
+- Atualizar o README.md do projeto com requisitos, dependências e visão geral da aplicação.
+- Atualizar o README.md do projeto com instruções de operação, status, interrupção e troubleshooting.
+- Revisar o README final, TODOList, memória persistente e pivotagens após a validação completa.
+- Concluir o marco final da versão simples e final do Mark Alfa.

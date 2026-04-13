@@ -1,0 +1,7 @@
+Package: jarvis-backend
+Version: 1.0.0
+Architecture: all
+Maintainer: Gaia Works
+Depends: python3, systemd
+Description: Mark Alfa Backend Server
+ Servidor Backend do Mark Alfa (Open Interpreter encapsulado).
