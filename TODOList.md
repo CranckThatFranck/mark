@@ -3,6 +3,11 @@
 ** No ## Fazendo**: Deverá ser para onde você moverá o itém que você começou a trabalhar, para que possamos saber o que falta fazer e o que está sendo feito.
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 ## Feito
+- Atualizar o README.md do projeto com explicação dos caminhos do produto instalável futuro.
+- Atualizar o README.md do projeto com instruções de operação, status, interrupção e troubleshooting.
+- Atualizar o README.md do projeto com instruções de instalação do frontend.
+- Atualizar o README.md do projeto com instruções de instalação do backend.
+- Atualizar o README.md do projeto com requisitos, dependências e visão geral da aplicação.
 - Validar instalação do frontend em /opt/jarvis/frontend.
 - Criar scripts e arquivos necessários de pós-instalação do frontend, se aplicável.
 - Criar estrutura de packaging do frontend para .deb.
@@ -63,7 +68,12 @@
 - Consolidar a documentação de contexto e contrato operacional do Mark Alfa.
 - Definir documentação de roadmap, critérios de aceite, diretórios, persistência, empacotamento, backend, frontend e checklist de release.
 ## Fazendo
-- Atualizar o README.md do projeto com explicação dos caminhos do produto instalável futuro.
+- Executar checklist final de release do Mark Alfa.
+- Executar checklist de aceite do frontend.
+- Executar checklist de aceite do backend.
+- Executar testes de integração ponta a ponta entre frontend e backend.
+- Executar testes de fumaça do frontend.
+- Executar testes de fumaça do backend.
 - Atualizar o README.md do projeto com instruções de operação, status, interrupção e troubleshooting.
 - Atualizar o README.md do projeto com instruções de instalação do frontend.
 - Atualizar o README.md do projeto com instruções de instalação do backend.
@@ -101,10 +111,6 @@
 - Criar unit file do systemd para o backend.
 - Definir oficialmente a stack do frontend.
 - Implementar exibição de message, code, console, status e system no frontend.
-- Executar testes de integração ponta a ponta entre frontend e backend.
-- Executar checklist de aceite do backend.
-- Executar checklist de aceite do frontend.
-- Executar checklist final de release do Mark Alfa.
 - Atualizar README.md final do projeto com requisitos, instalação, operação e troubleshooting.
 - Revisar TODOList, memória persistente e pivotagens antes do marco final.
 - Realizar commit e push do primeiro marco executável do Mark Alfa.
