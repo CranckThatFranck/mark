@@ -4,6 +4,7 @@
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 
 ## Feito
+- Atualizar o README.md detalhando as novas configurações de Vertex AI, chaves, regiões e exemplos de caminhos de credenciais.
 - Atualizar o frontend para permitir escolha ou edição de Região para Hotswap de modelos.
 - Atualizar o frontend para permitir a inclusão de Custom Model ID.
 - Atualizar o frontend para listar os novos modelos Vertex AI.
@@ -57,7 +58,7 @@
 - Integrar o backend ao agent_runner sem depender da CLI solta do Open Interpreter.
 
 ## Fazendo
-- Atualizar o README.md detalhando as novas configurações de Vertex AI, chaves, regiões e exemplos de caminhos de credenciais.
+- Validar backend com testes reais subindo no novo modelo e trocando de região dinamicamente.
 - Atualizar o frontend para permitir a inclusão de Custom Model ID.
 - Atualizar o frontend para listar os novos modelos Vertex AI.
 

@@ -10,22 +10,54 @@ Este é o repositório oficial do Mark Alfa, um sistema composto por:
 - **Hardware**: CPU x86_64 moderna (instruções AVX suportadas).
 - **Dependências (Pip)**: `websockets`, `psutil`, `open-interpreter`, `customtkinter`, `setuptools<70.0.0`.
 
-## Preparações de Ambiente (API Keys)
-O Open Interpreter e provedores LLM exigem chaves de API.
-Para uso em terminal ou desenvolvimento, exporte-as no shell (ex: `~/.bashrc`):
+## Preparações de Ambiente (LLM Providers e API Keys)
+O backend do Mark Alfa utiliza a biblioteca LiteLLM embutida no Open Interpreter, o que permite o uso dinâmico de diferentes provedores. **A responsabilidade de prover chaves e configurar o ambiente de sistema é puramente do Operador**. O Mark não automatiza criação de keys ou injeção forçada de credenciais no SO por razões de segurança.
+
+Você pode usar modelos através de 2 mecanismos principais (configuráveis a qualquer momento via hotswap na UI do Mark):
+
+### 1. Modelos Gemini via API Key simples (`gemini/...`)
+Para acessar os modelos abertos do Google (ex: `gemini-2.5-flash`, `gemini-2.5-pro`):
+Exporte no seu shell (se for rodar o `server.py` manualmente):
 ```bash
 export GEMINI_API_KEY="sua_chave"
-export OPENAI_API_KEY="sua_chave"
 ```
-**Atenção para uso Produtivo (SystemD):** Serviços do sistema operacional não herdam o shell do usuário automaticamente. Para o backend funcionar no modo Instalável de sistema, a chave deve ser declarada nativamente no drop-in do systemd **antes do daemon iniciar**:
+**No SystemD (Uso Produtivo Instalável):**
+Crie um drop-in de override antes de ativar o daemon:
 ```bash
 sudo mkdir -p /etc/systemd/system/jarvis-backend.service.d
 sudo bash -c 'cat << EOF > /etc/systemd/system/jarvis-backend.service.d/override.conf
 [Service]
-Environment="GEMINI_API_KEY=sua_chave"
+Environment="GEMINI_API_KEY=sua_chave_aqui"
 EOF'
 sudo systemctl daemon-reload
 ```
+
+### 2. Modelos Vertex AI via Conta de Serviço Google Cloud (`vertex_ai/...`)
+Para acessar modelos de peso empresarial e Llama (ex: `vertex_ai/gemini-3.1-pro-preview-customtools` que é o padrão atual do Mark, ou `vertex_ai/llama-4-maverick-17b-128e-instruct-maas`), você precisa fornecer as credenciais via Application Default Credentials (JSON).
+
+Exporte as seguintes variáveis no shell local (se for uso dev):
+```bash
+export VERTEXAI_PROJECT="id-do-seu-projeto-gcp"
+export VERTEXAI_LOCATION="us-east5" # Região opcional. O backend forçará o override do frontend se configurado na interface.
+export GOOGLE_APPLICATION_CREDENTIALS="/caminho/absoluto/para/sua/chave-de-servico.json"
+```
+
+**Exemplos de Camnho JSON por SO:**
+- Fedora/Linux Geral: `/home/usuario/.config/gcloud/application_default_credentials.json`
+- Ubuntu (Servidor): `/etc/gcp/mark-service-account.json`
+
+**No SystemD (Uso Produtivo Instalável com Vertex AI):**
+Da mesma forma, o daemon precisa herdar este Application Credentials e o Project. Configure no seu Drop-in:
+```bash
+sudo mkdir -p /etc/systemd/system/jarvis-backend.service.d
+sudo bash -c 'cat << EOF > /etc/systemd/system/jarvis-backend.service.d/override.conf
+[Service]
+Environment="VERTEXAI_PROJECT=seu-projeto-123"
+Environment="GOOGLE_APPLICATION_CREDENTIALS=/caminho/real/do/json/chave.json"
+EOF'
+sudo systemctl daemon-reload
+```
+A região padrão do projeto é `us-east5`. No entanto, você pode alterá-la dinamicamente escolhendo ou digitando uma região nova diretamente na Interface do Mark Alfa, que o backend atualizará a conexão Vertex em tempo real.
 
 ## Instalação (Produto Instalável Final)
 O Produto oficial e final opera independentemente do diretório de onde o código fonte foi baixado. Ele é instalado como sistema.
