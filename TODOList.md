@@ -3,6 +3,7 @@
 ** No ## Fazendo**: Deverá ser para onde você moverá o itém que você começou a trabalhar, para que possamos saber o que falta fazer e o que está sendo feito.
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 ## Feito
+- Concluir o marco final da versão simples e final do Mark Alfa.
 - Validar start, stop, restart e status do backend via systemd.
 - Validar instalação do backend em /opt/jarvis/backend.
 - Corrigir eventuais falhas encontradas durante os testes finais.
@@ -81,7 +82,6 @@
 - Consolidar a documentação de contexto e contrato operacional do Mark Alfa.
 - Definir documentação de roadmap, critérios de aceite, diretórios, persistência, empacotamento, backend, frontend e checklist de release.
 ## Fazendo
-- Concluir o marco final da versão simples e final do Mark Alfa.
 - Corrigir eventuais falhas encontradas durante os testes finais.
 - Executar checklist de aceite do backend.
 - Executar checklist de aceite do frontend.
@@ -117,4 +117,3 @@
 - Implementar o fluxo de mensagens user, status, message, code, console e action_response.
 - Integrar o backend ao agent_runner sem depender da CLI solta do Open Interpreter.
 ## A fazer
-- Validar start, stop, restart e status do backend via systemd.
