@@ -4,6 +4,7 @@
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 
 ## Feito
+- Criar o arquivo src/backend/config.py.
 - Criar a estrutura inicial de diretórios do repositório conforme a documentação.
 - Atualizar o README.md vazio da raiz do repositório com um esqueleto inicial da aplicação backend e frontend.
 - Revisar todos os documentos do AgentContext e confirmar consistência final entre contexto atual do agente e produto instalável futuro.
@@ -11,10 +12,9 @@
 - Definir documentação de roadmap, critérios de aceite, diretórios, persistência, empacotamento, backend, frontend e checklist de release.
 
 ## Fazendo
-- Criar o arquivo src/backend/config.py.
+- Implementar as constantes principais do backend em config.py.
 
 ## A fazer
-- Implementar as constantes principais do backend em config.py.
 - Implementar a resolução de caminhos do ambiente atual e do produto instalável futuro em config.py.
 - Implementar a detecção de HOME, Documents, Documentos e fallback para o contexto do produto instalável.
 - Declarar o modelo padrão e a lista inicial de modelos suportados no backend.
