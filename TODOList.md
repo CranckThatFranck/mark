@@ -4,6 +4,7 @@
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 
 ## Feito
+- Criar estrutura de packaging do frontend para .rpm.
 - Criar estrutura de packaging do frontend para .deb.
 - Criar estrutura de packaging do backend para .rpm.
 - Criar estrutura de packaging do backend para .deb.
@@ -38,7 +39,6 @@
 - Integrar o backend ao agent_runner sem depender da CLI solta do Open Interpreter.
 
 ## Fazendo
-- Criar estrutura de packaging do frontend para .rpm.
 
 ## A fazer
 - Atualizar o README.md do projeto com instruções de instalação do frontend.
