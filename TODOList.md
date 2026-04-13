@@ -1,6 +1,6 @@
 ### Instruções de leitura e movimentação do documento:
 **Inicie a leitura dos iténs em A fazer**: Está será sua lista de to-do divido em itens de ações. Cada workiten será contido em uma linha iniciado em - e finalizado em . 
-** No ## Fazendo**: Deverá ser para onde você moverá o itém que você começou a trabalhar, para que possamos saber o que falta fazer e o que está sendo feito.
+** No ==FAZENDO==**: Deverá ser para onde você moverá o itém que você começou a trabalhar, para que possamos saber o que falta fazer e o que está sendo feito.
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 ## Feito
 - Concluir o marco final da versão simples e final do Mark Alfa.
@@ -81,7 +81,7 @@
 - Revisar todos os documentos do AgentContext e confirmar consistência final entre contexto atual do agente e produto instalável futuro.
 - Consolidar a documentação de contexto e contrato operacional do Mark Alfa.
 - Definir documentação de roadmap, critérios de aceite, diretórios, persistência, empacotamento, backend, frontend e checklist de release.
-## Fazendo
+==FAZENDO==
 - Corrigir eventuais falhas encontradas durante os testes finais.
 - Executar checklist de aceite do backend.
 - Executar checklist de aceite do frontend.
