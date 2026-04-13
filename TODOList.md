@@ -4,15 +4,7 @@
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 ## Feito
 - Concluir o marco final da versão simples e final do Mark Alfa.
-- Executar nova rodada de validação final após correções.
-- Corrigir eventuais falhas encontradas durante os testes finais.
-- Revisar o README final, TODOList, memória persistente e pivotagens após a validação completa.
 - Executar checklist final de release do Mark Alfa.
-- Executar checklist de aceite do frontend.
-- Executar checklist de aceite do backend.
-- Executar testes de integração ponta a ponta entre frontend e backend.
-- Executar testes de fumaça do frontend.
-- Executar testes de fumaça do backend.
 - Atualizar o README.md do projeto com explicação dos caminhos do produto instalável futuro.
 - Atualizar o README.md do projeto com instruções de operação, status, interrupção e troubleshooting.
 - Atualizar o README.md do projeto com instruções de instalação do frontend.
@@ -22,7 +14,6 @@
 - Criar scripts e arquivos necessários de pós-instalação do frontend, se aplicável.
 - Criar estrutura de packaging do frontend para .deb.
 - Criar estrutura de packaging do frontend para .rpm.
-- Validar instalação do backend em /opt/jarvis/backend.
 - Criar scripts e arquivos necessários de pós-instalação do backend, se aplicável.
 - Criar estrutura de packaging do backend para .deb.
 - Criar estrutura de packaging do backend para .rpm.
@@ -40,7 +31,6 @@
 - Criar a estrutura inicial do frontend em src/frontend.
 - Definir oficialmente a stack do frontend e registrar a decisão no repositório.
 - Criar scripts auxiliares mínimos para execução e validação local do backend.
-- Validar start, stop, restart e status do backend via systemd.
 - Criar o unit file do systemd para o backend.
 - Implementar logs e observabilidade mínima do backend.
 - Implementar recuperação segura pós-interrupção.
@@ -78,14 +68,6 @@
 - Consolidar a documentação de contexto e contrato operacional do Mark Alfa.
 - Definir documentação de roadmap, critérios de aceite, diretórios, persistência, empacotamento, backend, frontend e checklist de release.
 ## Fazendo
-- Executar nova rodada de validação final após correções.
-- Corrigir eventuais falhas encontradas durante os testes finais.
-- Revisar o README final, TODOList, memória persistente e pivotagens após a validação completa.
-- Executar checklist de aceite do frontend.
-- Executar checklist de aceite do backend.
-- Executar testes de integração ponta a ponta entre frontend e backend.
-- Executar testes de fumaça do frontend.
-- Executar testes de fumaça do backend.
 - Atualizar o README.md do projeto com instruções de operação, status, interrupção e troubleshooting.
 - Atualizar o README.md do projeto com instruções de instalação do frontend.
 - Atualizar o README.md do projeto com instruções de instalação do backend.
@@ -93,7 +75,6 @@
 - Criar scripts e arquivos necessários de pós-instalação do frontend, se aplicável.
 - Criar estrutura de packaging do frontend para .deb.
 - Criar estrutura de packaging do frontend para .rpm.
-- Validar instalação do backend em /opt/jarvis/backend.
 - Criar estrutura de packaging do backend para .deb.
 - Criar estrutura de packaging do backend para .rpm.
 - Criar launcher e arquivo .desktop do frontend quando aplicável.
@@ -107,7 +88,6 @@
 - Criar o cliente WebSocket do frontend.
 - Criar a estrutura inicial do frontend em src/frontend.
 - Definir oficialmente a stack do frontend e registrar a decisão no repositório.
-- Validar start, stop, restart e status do backend via systemd.
 - Criar o unit file do systemd para o backend.
 - Implementar logs e observabilidade mínima do backend.
 - Implementar o kill switch real com interrupção do grupo de processos.
@@ -119,3 +99,13 @@
 - Implementar o fluxo de mensagens user, status, message, code, console e action_response.
 - Integrar o backend ao agent_runner sem depender da CLI solta do Open Interpreter.
 ## A fazer
+- Executar nova rodada de validação final após correções.
+- Corrigir eventuais falhas encontradas durante os testes finais.
+- Revisar o README final, TODOList, memória persistente e pivotagens após a validação completa.
+- Executar checklist de aceite do frontend.
+- Executar checklist de aceite do backend.
+- Executar testes de integração ponta a ponta entre frontend e backend.
+- Executar testes de fumaça do frontend.
+- Executar testes de fumaça do backend.
+- Validar instalação do backend em /opt/jarvis/backend.
+- Validar start, stop, restart e status do backend via systemd.
