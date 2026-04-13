@@ -119,10 +119,3 @@
 - Implementar o fluxo de mensagens user, status, message, code, console e action_response.
 - Integrar o backend ao agent_runner sem depender da CLI solta do Open Interpreter.
 ## A fazer
-- Criar o modelo de estado interno do backend.
-- Criar unit file do systemd para o backend.
-- Definir oficialmente a stack do frontend.
-- Implementar exibição de message, code, console, status e system no frontend.
-- Atualizar README.md final do projeto com requisitos, instalação, operação e troubleshooting.
-- Revisar TODOList, memória persistente e pivotagens antes do marco final.
-- Realizar commit e push do primeiro marco executável do Mark Alfa.
