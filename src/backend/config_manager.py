@@ -1,7 +1,7 @@
 import json
 import logging
 from pathlib import Path
-from config import BASE_DIR, DEFAULT_MODEL
+from config import BASE_DIR, DEFAULT_MODEL, DEFAULT_REGION
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,8 @@ def load_config():
         logger.error(f"Failed to create BASE_DIR {BASE_DIR}: {e}")
     default_config = {
         "mode": "agent",
-        "model": DEFAULT_MODEL
+        "model": DEFAULT_MODEL,
+        "region": DEFAULT_REGION
     }
     
     if not CONFIG_FILE.exists():

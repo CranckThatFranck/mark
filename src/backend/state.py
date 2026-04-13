@@ -1,12 +1,13 @@
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
-from config import DEFAULT_MODEL
+from config import DEFAULT_MODEL, DEFAULT_REGION
 from config_manager import load_config, save_config
 
 @dataclass
 class BackendState:
     mode: str = "agent"  # "agent" ou "plan"
     model: str = DEFAULT_MODEL
+    region: str = DEFAULT_REGION
     status: str = "idle" # "idle", "running", "interrupted"
     active_task: Optional[str] = None
     interpreter_pid: Optional[int] = None
@@ -16,6 +17,7 @@ class BackendState:
         return {
             "mode": self.mode,
             "model": self.model,
+            "region": self.region,
             "status": self.status,
             "active_task": self.active_task
         }
@@ -29,4 +31,4 @@ class BackendState:
 
 # Instância global do estado para ser compartilhada
 initial_cfg = load_config()
-global_state = BackendState(mode=initial_cfg.get("mode", "agent"), model=initial_cfg.get("model", DEFAULT_MODEL))
+global_state = BackendState(mode=initial_cfg.get("mode", "agent"), model=initial_cfg.get("model", DEFAULT_MODEL), region=initial_cfg.get("region", DEFAULT_REGION))

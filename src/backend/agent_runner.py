@@ -27,9 +27,24 @@ class AgentRunner:
         self.interpreter.llm.model = "gemini-2.5-flash" # default start
         # Podemos adicionar limits aqui
 
-    def update_model(self, new_model: str):
-        """Atualiza o modelo de LLM usado pelo interpreter"""
+def update_model(self, new_model: str, region: str = None):
+        """
+        Atualiza o modelo de LLM usado pelo interpreter e as variaveis
+        necessárias para chamadas Vertex AI baseando-se no que está já no OS ou env.
+        """
         self.interpreter.llm.model = new_model
+        
+        # O litellm/open-interpreter precisa de dicas no environment local
+        # se for usar o vertex_ai. A responsabilidade de prover os dados nas vars é do operador,
+        # nós só amarramos os pontos pro provider.
+        if "vertex_ai" in new_model:
+            # Puxa o location do argumento que veio do frontend (override) ou env default e injeta VERTEX_LOCATION e VERTEXAI_LOCATION pro litellm ler
+            final_region = region if region else os.environ.get("VERTEXAI_LOCATION", "us-east5")
+            os.environ["VERTEX_LOCATION"] = final_region
+            os.environ["VERTEXAI_LOCATION"] = final_region
+            # Não injetamos chaves aqui. O Operator que precisa ter GOOGLE_APPLICATION_CREDENTIALS ou VERTEXAI_PROJECT no ambiente/systemd
+
+        logger.info(f"Modelo atualizado para {new_model}, Região para VertexAI: {os.environ.get('VERTEXAI_LOCATION', 'us-east5')}")
 
 
     async def run_task(self, prompt: str, mode: str):

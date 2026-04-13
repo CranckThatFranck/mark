@@ -24,7 +24,7 @@ async def send_stream_cb(msg_type: str, content: str):
         if global_state.mode == "plan":
             global_state.mode = "agent"
             from config_manager import save_config
-            save_config({"mode": global_state.mode, "model": global_state.model})
+            save_config({"mode": global_state.mode, "model": global_state.model, "region": global_state.region})
             asyncio.create_task(broadcast_state())
         return
 
@@ -81,20 +81,26 @@ async def handle_action(ws, data: dict):
         # Retorna config atual (no futuro, pode ler de um json de config persistido)
         resp = ProtocolParser.build_action_response("get_config", True, data={
             "mode": global_state.mode,
-            "model": global_state.model
+            "model": global_state.model,
+            "region": global_state.region
         })
         await ws.send(resp)
         
 
-    elif action == "update_config":
+elif action == "update_config":
         new_config = payload.get("config", {})
-        if "model" in new_config and new_config["model"] in SUPPORTED_MODELS:
+        if "model" in new_config:
             global_state.model = new_config["model"]
+        if "region" in new_config:
+            global_state.region = new_config["region"]
         if "mode" in new_config and new_config["mode"] in ["agent", "plan"]:
             global_state.mode = new_config["mode"]
             
         from config_manager import save_config
-        save_config({"mode": global_state.mode, "model": global_state.model})
+        save_config({"mode": global_state.mode, "model": global_state.model, "region": global_state.region})
+        
+        global agent_runner
+        agent_runner.update_model(global_state.model, global_state.region)
         
         await broadcast_state()
         resp = ProtocolParser.build_action_response("update_config", True)
@@ -102,14 +108,23 @@ async def handle_action(ws, data: dict):
         
     elif action == "change_model":
         model = payload.get("model")
-        if model in SUPPORTED_MODELS:
+        region = payload.get("region") # Optional custom region
+        
+        if model:
             global_state.model = model
+            if region:
+                global_state.region = region
+                
             from config_manager import save_config
-            save_config({"mode": global_state.mode, "model": global_state.model})
+            save_config({"mode": global_state.mode, "model": global_state.model, "region": global_state.region})
+            
+            global agent_runner
+            agent_runner.update_model(global_state.model, global_state.region)
+            
             await broadcast_state()
             resp = ProtocolParser.build_action_response("change_model", True)
         else:
-            resp = ProtocolParser.build_action_response("change_model", False, error="Modelo não suportado")
+            resp = ProtocolParser.build_action_response("change_model", False, error="Model não enviado")
         await ws.send(resp)
         
     elif action == "change_mode":
@@ -117,7 +132,7 @@ async def handle_action(ws, data: dict):
         if mode in ["agent", "plan"]:
             global_state.mode = mode
             from config_manager import save_config
-            save_config({"mode": global_state.mode, "model": global_state.model})
+            save_config({"mode": global_state.mode, "model": global_state.model, "region": global_state.region})
             await broadcast_state()
             resp = ProtocolParser.build_action_response("change_mode", True)
         else:
@@ -170,7 +185,7 @@ async def handle_action(ws, data: dict):
         
         # Reinicia o Runner para garantir estado limpo (Recuperação Segura Pós-Interrupção)
         agent_runner = AgentRunner(send_stream_cb, set_status_cb)
-        agent_runner.update_model(global_state.model)
+        agent_runner.update_model(global_state.model, global_state.region)
         
         # Envia broadcast a todos e responde confirmando a interrupção
         await broadcast_state()
@@ -214,7 +229,7 @@ async def start_server():
 
     global agent_runner
     agent_runner = AgentRunner(send_stream_cb, set_status_cb)
-    agent_runner.update_model(global_state.model)
+    agent_runner.update_model(global_state.model, global_state.region)
     
     logger.info(f"Iniciando Jarvis Backend em ws://{WS_HOST}:{WS_PORT}")
     async with websockets.serve(connection_handler, WS_HOST, WS_PORT):

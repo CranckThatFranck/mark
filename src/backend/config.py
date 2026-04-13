@@ -37,9 +37,19 @@ LOGS_DIR = BASE_DIR
 MEMORY_LOG = BASE_DIR / "MemoriaDoJarvis.log"
 CHANGE_LOG = BASE_DIR / "change.log"
 
-# Modelos suportados
-DEFAULT_MODEL = "gemini-2.5-flash"
+# Modelos suportados e Padroes
+DEFAULT_MODEL = "vertex_ai/gemini-3.1-pro-preview-customtools"
+DEFAULT_REGION = "us-east5"
+
 SUPPORTED_MODELS = [
+    "vertex_ai/gemini-3.1-pro-preview-customtools",
+    "vertex_ai/gemini-3.1-pro-preview",
+    "vertex_ai/gemini-3-flash-preview",
+    "vertex_ai/gemini-3.1-flash-lite-preview",
+    "vertex_ai/gemini-2.5-flash",
+    "vertex_ai/gemini-2.5-pro",
+    "vertex_ai/llama-4-scout-17b-16e-instruct-maas",
+    "vertex_ai/llama-4-maverick-17b-128e-instruct-maas",
     "gemini-2.5-flash",
     "gemini-2.5-pro",
     "gpt-4o",
