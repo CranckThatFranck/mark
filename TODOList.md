@@ -3,6 +3,11 @@
 ** No ## Fazendo**: Deverá ser para onde você moverá o itém que você começou a trabalhar, para que possamos saber o que falta fazer e o que está sendo feito.
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 ## Feito
+- Revisar o README final, TODOList, memória persistente e pivotagens após a validação completa.
+- Executar nova rodada de validação final após correções.
+- Corrigir eventuais falhas encontradas durante os testes finais.
+- Executar checklist de aceite do backend.
+- Executar checklist de aceite do frontend.
 - Executar testes de integração ponta a ponta entre frontend e backend.
 - Executar testes de fumaça do frontend.
 - Validar start, stop, restart e status do backend via systemd.
@@ -73,7 +78,6 @@
 - Consolidar a documentação de contexto e contrato operacional do Mark Alfa.
 - Definir documentação de roadmap, critérios de aceite, diretórios, persistência, empacotamento, backend, frontend e checklist de release.
 ## Fazendo
-- Revisar o README final, TODOList, memória persistente e pivotagens após a validação completa.
 - Executar nova rodada de validação final após correções.
 - Corrigir eventuais falhas encontradas durante os testes finais.
 - Executar checklist de aceite do backend.
