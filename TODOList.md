@@ -4,13 +4,13 @@
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 
 ## Feito
+- Revisar todos os documentos do AgentContext e confirmar consistência final entre contexto atual do agente e produto instalável futuro.
 - Consolidar a documentação de contexto e contrato operacional do Mark Alfa.
 - Definir documentação de roadmap, critérios de aceite, diretórios, persistência, empacotamento, backend, frontend e checklist de release.
 
 ## Fazendo
 
 ## A fazer
-- Revisar rapidamente todos os documentos finais do AgentContext já gerados e confirmar consistência entre eles.
 - Criar a estrutura inicial de diretórios do repositório conforme a documentação.
 - Criar o arquivo src/backend/config.py.
 - Implementar as constantes principais do backend em config.py.
