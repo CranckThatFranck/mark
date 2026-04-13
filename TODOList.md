@@ -4,6 +4,12 @@
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 
 ## Feito
+- Concluir o marco final da versão simples e final do Mark Alfa.
+- Revisar o README final, TODOList, memória persistente e pivotagens após a validação completa.
+- Atualizar o README.md do projeto com instruções de operação, status, interrupção e troubleshooting.
+- Atualizar o README.md do projeto com requisitos, dependências e visão geral da aplicação.
+- Atualizar o README.md do projeto com instruções de instalação do backend.
+- Atualizar o README.md do projeto com instruções de instalação do frontend.
 - Criar estrutura de packaging do frontend para .rpm.
 - Criar estrutura de packaging do frontend para .deb.
 - Criar estrutura de packaging do backend para .rpm.
@@ -39,11 +45,8 @@
 - Integrar o backend ao agent_runner sem depender da CLI solta do Open Interpreter.
 
 ## Fazendo
+- Atualizar o README.md do projeto com requisitos, dependências e visão geral da aplicação.
+- Atualizar o README.md do projeto com instruções de instalação do backend.
+- Atualizar o README.md do projeto com instruções de instalação do frontend.
 
 ## A fazer
-- Atualizar o README.md do projeto com instruções de instalação do frontend.
-- Atualizar o README.md do projeto com instruções de instalação do backend.
-- Atualizar o README.md do projeto com requisitos, dependências e visão geral da aplicação.
-- Atualizar o README.md do projeto com instruções de operação, status, interrupção e troubleshooting.
-- Revisar o README final, TODOList, memória persistente e pivotagens após a validação completa.
-- Concluir o marco final da versão simples e final do Mark Alfa.

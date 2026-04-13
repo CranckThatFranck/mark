@@ -1,58 +1,63 @@
 # Mark Alfa
 
 Este é o repositório oficial do Mark Alfa, um sistema composto por:
-- **Backend (Python)**: Um servidor WebSocket e HTTP local, isolado por systemd, responsável por rodar o Open Interpreter encapsulado e gerenciar o estado da máquina.
-- **Frontend (Python)**: Uma interface gráfica nativa em CustomTkinter que se conecta ao backend via WebSocket e exibe o chat e status de execução.
+- **Backend (Python)**: Um servidor WebSocket local encapsulando o Open Interpreter gerenciado pelo systemd.
+- **Frontend (Python)**: Uma interface gráfica nativa em CustomTkinter interagindo via WebSocket para controle.
 
 ## Requisitos e Dependências
-- **SO**: Fedora ou Ubuntu.
-- **Python**: Versão 3.10 ou superior (Testado/Homologado no 3.12, preferível ambiente isolado `venv`).
-- **Hardware**: Processador x86_64 compatível com instruções modernas, ou compilação forçada manual do `numpy` (caso use arquiteturas antigas como Pentium P6200).
-- **Dependências de Sistema**: `systemd`.
-- **Bibliotecas do Backend** (instalar via pip): `websockets`, `psutil`, `open-interpreter`, `setuptools<70.0.0`.
-- **Bibliotecas do Frontend** (instalar via pip): `customtkinter`, `websockets`.
+- **SO**: Fedora (RPM) ou Ubuntu (DEB).
+- **Python**: Versão 3.10 a 3.12 (`venv` isolado exigido no deploy). 
+- **Hardware**: CPU x86_64 moderna (instruções AVX suportadas).
+- **Dependências (Pip)**: `websockets`, `psutil`, `open-interpreter`, `customtkinter`, `setuptools<70.0.0`.
 
-## Preparações de Ambiente
-A API da sua LLM favorita (ex: GEMINI, OPENAI, ANTHROPIC) deve estar exportada nas variáveis de ambiente globais do usuário alvo que instalará ou do root, dependendo da instalação. Exemplo:
+## Preparações de Ambiente (API Keys)
+O Open Interpreter e provedores LLM exigem chaves de API.
+Para uso em terminal ou desenvolvimento, exporte-as no shell (ex: `~/.bashrc`):
 ```bash
 export GEMINI_API_KEY="sua_chave"
+export OPENAI_API_KEY="sua_chave"
+```
+**Atenção para uso Produtivo (SystemD):** Serviços do sistema operacional não herdam o shell do usuário automaticamente. Para o backend funcionar no modo Instalável de sistema, a chave deve ser declarada nativamente no drop-in do systemd **antes do daemon iniciar**:
+```bash
+sudo mkdir -p /etc/systemd/system/jarvis-backend.service.d
+sudo bash -c 'cat << EOF > /etc/systemd/system/jarvis-backend.service.d/override.conf
+[Service]
+Environment="GEMINI_API_KEY=sua_chave"
+EOF'
+sudo systemctl daemon-reload
 ```
 
 ## Instalação (Produto Instalável Final)
+O Produto oficial e final opera independentemente do diretório de onde o código fonte foi baixado. Ele é instalado como sistema.
 
-### Backend
-Os pacotes gerados em `.rpm` (RedHat/Fedora) ou `.deb` (Debian/Ubuntu) instalam os arquivos do backend no diretório oficial raiz `/opt/jarvis/backend`.
-Durante a instalação, o serviço do systemd é ativado automaticamente.
-Para gerenciar o serviço:
+**1. Instalação do Backend (`jarvis-backend`)**
+Baixe ou compile o `.rpm` / `.deb` respectivo e instale.
+A instalação jogará a pasta do backend para o destino `/opt/jarvis/backend/`.
+- Após garantir as premissas de ambiente com `override.conf` das chaves:
 ```bash
 sudo systemctl enable --now jarvis-backend
-sudo systemctl start jarvis-backend
-sudo systemctl stop jarvis-backend
-sudo systemctl restart jarvis-backend
-sudo systemctl status jarvis-backend
 ```
 
-### Frontend
-Os pacotes do frontend instalam os arquivos em `/opt/jarvis/frontend` e configuram um atalho `.desktop` em `/usr/share/applications/mark-alfa.desktop`. Você pode abrir o programa buscando por "Mark Alfa" no seu launcher do sistema (ex: GNOME, XFCE).
+**2. Instalação do Frontend (`jarvis-frontend`)**
+O pacote `.rpm` / `.deb` colocará o código de interface em `/opt/jarvis/frontend/` e criará um launcher global Desktop.
+Você pode abrir o software buscando por "Mark Alfa" no seu menu de aplicações (GNOME, XFCE).
 
-## Uso Local (Sem Instalar no Root)
-Caso queira testar a aplicação clonada sem invadir o `/opt/jarvis`:
-1. Instale as dependências: `pip install -r requirements.txt` (ou instale os módulos listados acima manualmente num venv).
-2. Rode o backend: `./scripts/run_backend_local.sh`
-3. Em outra aba de terminal, rode o frontend: `python3 src/frontend/app.py`
-
-## Operação e Troubleshooting
-- **Interrupção (Kill Switch):** Pode ser ativada diretamente pela UI (botão vermelho "KILL SWITCH"). Ela força o isolamento de PID/PGID e derruba a árvore de processos ou loops de repetição infinitos causados pela IA, restabelecendo o backend de volta a "idle".
-- **Logs e Persistência:**
-  - O Backend armazena os dados do `AgentContext` dinamicamente baseando-se no diretório `~/Documents/JarvisMinion` (caso exista) ou criando como fallback o diretório `~/Documents/JarvisMark`.
-  - Configurações e Logs residem em `config.json` e `backend.log` (diretamente dentro dessa pasta persistente detectada na `/home/` ou equivalente ao ambiente de execução do systemd).
-- **Problemas de Conexão WebSocket:** Verifique se a porta `8765/tcp` está sendo bloqueada ou em uso por outro processo (`sudo fuser 8765/tcp`).
-- **Problemas com Numpy/ImportError no Backend:** Verifique sua versão de CPU ou reinstale as bibliotecas (`pip install --force-reinstall numpy==1.26.4`) e ajuste a versão do `setuptools`.
+## Uso Local (Modo Desenvolvedor)
+Se você não instalou via RPM/DEB e quer rodar os scripts da pasta de clone:
+1. `pip install -r requirements.txt` (use venv).
+2. `./scripts/run_backend_local.sh`
+3. `python3 src/frontend/app.py`
 
 ## Divisão e Distinção de Ambientes
-Este repositório respeita uma separação e portabilidade claras:
-1. **Ambiente Atual (O Agente Jarvis)**: A instância que desenvolveu este código usa os arquivos localizados diretamente em `/home/francisco/Documentos/JarvisMinion`. Ela age como operária.
-2. **Ambiente Instalável (Produto Futuro)**: O Mark Alfa criado residirá em `/opt/jarvis`, abstraído de nomes de usuário ou arquivos `.bashrc` amarrados, sendo 100% plug-and-play e preparado para ser distribuído. A instalação `.rpm` / `.deb` assume sempre esta raiz independente.
+O design da aplicação respeita as seguintes divisões lógicas estritas para não misturar dados:
+
+- **Ambiente de Desenvolvimento (O Agente Jarvis)**: A instância que desenvolve (Agente Autônomo) vive na pasta local do usuário em `/home/francisco/Documentos/JarvisMinion`. Estes arquivos e contextos são do agente desenvolvedor, não do produto Mark Alfa.
+- **Ambiente Instalável (O Produto Mark Alfa)**: Os pacotes instaláveis são abstraídos de usuário. Residem globalmente em `/opt/jarvis/`.
+- **Política de Contexto Dinâmico**: Embora os binários residam em `/opt`, o estado em tempo de execução do Mark Alfa (persistência, logs, config) busca um diretório dinâmico do usuário atual. Se ele encontrar um `~/Documents/JarvisMark` ou equivalente no home do usuário que iniciar a interface/sessão, ele salva `config.json` e logs (`backend.log`) lá, nunca sujando as permissões de `/opt/`.
+
+## Troubleshooting & Operação
+- **Interrupção (Kill Switch):** O botão vermelho no Frontend injeta o comando `interrupt` que forçadamente desativa a árvore de PID e Grupo PID do Open Interpreter em loops problemáticos, garantindo limpeza da RAM e retornando pro estado ocioso.
+- **Conexão Falha (Erro 111):** Verifique o systemd `sudo systemctl status jarvis-backend` para conferir se o daemon quebrou por falha nas API_KEYs.
 
 ---
-Desenvolvido por Jarvis/Mark 1 para Gaia Works. Documentação e contratos JSON de WebSockets podem ser vistos na pasta `AgentContext/`.
+Desenvolvido pela Gaia Works. Veja a pasta `AgentContext/` para especificações operacionais JSON e arquitetura.
