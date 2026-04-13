@@ -3,6 +3,10 @@
 ** No ## Fazendo**: Deverá ser para onde você moverá o itém que você começou a trabalhar, para que possamos saber o que falta fazer e o que está sendo feito.
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 ## Feito
+- Implementar o retorno automático para agent após conclusão da tarefa.
+- Implementar o modo Agent.
+- Implementar o modo Plan.
+- Implementar o fluxo de mensagens user, status, message, code, console e action_response.
 - Integrar o backend ao agent_runner sem depender da CLI solta do Open Interpreter.
 - Implementar a action execute_task.
 - Criar o invólucro controlado do Open Interpreter em src/backend/agent_runner.py.
@@ -29,18 +33,17 @@
 - Consolidar a documentação de contexto e contrato operacional do Mark Alfa.
 - Definir documentação de roadmap, critérios de aceite, diretórios, persistência, empacotamento, backend, frontend e checklist de release.
 ## Fazendo
-- Implementar o retorno automático para agent após conclusão da tarefa.
+- Implementar recuperação segura pós-interrupção.
+- Implementar o kill switch real com interrupção do grupo de processos.
+- Implementar a action interrupt.
+- Implementar rastreamento de tarefa ativa com PID e PGID.
+- Implementar o isolamento de subprocessos por PGID.
 - Implementar o modo Agent.
 - Implementar o modo Plan.
 - Implementar o fluxo de mensagens user, status, message, code, console e action_response.
 - Integrar o backend ao agent_runner sem depender da CLI solta do Open Interpreter.
 ## A fazer
 - Criar o modelo de estado interno do backend.
-- Implementar o isolamento de subprocessos por PGID.
-- Implementar rastreamento de tarefa ativa com PID e PGID.
-- Implementar a action interrupt.
-- Implementar o kill switch real com interrupção do grupo de processos.
-- Implementar recuperação segura pós-interrupção.
 - Implementar logs e observabilidade mínima do backend.
 - Criar unit file do systemd para o backend.
 - Validar start, stop, restart e status do backend via systemd.

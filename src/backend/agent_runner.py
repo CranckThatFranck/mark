@@ -31,39 +31,52 @@ class AgentRunner:
         """Atualiza o modelo de LLM usado pelo interpreter"""
         self.interpreter.llm.model = new_model
 
+
     async def run_task(self, prompt: str, mode: str):
         """
-        Executa a tarefa no interpreter.
-        Aqui interceptaremos a saída assíncrona se necessário.
+        Executa a tarefa no interpreter considerando o modo Plan vs Agent.
         """
         try:
             self.set_status("running", prompt)
             
-            # TODO: a implementação real exigirá interceptar stdout/stderr usando subprocess
-            # ou usando o motor interno do Open Interpreter generator-based
-            # Por enquanto, chassi básico:
+            await self.send_stream("user", prompt)
             
-            await self.send_stream("status", "Pensando...")
-            
-            # Vamos testar o modo generator do Open Interpreter:
-            for chunk in self.interpreter.chat(prompt, stream=True, display=False):
-                # O chunk tem a forma de dict com 'role', 'type', 'content', etc.
+            # Formata prompt baseado no modo
+            final_prompt = prompt
+            if mode == "plan":
+                final_prompt = (
+                    "Você está no modo PLAN (Planejamento de escopo). "
+                    "Seu objetivo não é executar código ainda, mas sim descrever o plano de ação, "
+                    "etapas, checagens de segurança e arquivos envolvidos. "
+                    "Mostre o plano formatado em Markdown e pergunte se pode executar. "
+                    "Ignorar essa regra é uma violação do contrato operacional. "
+                    f"A tarefa é: {prompt}"
+                )
+                await self.send_stream("status", "Analisando contexto no modo Plan...")
+            else:
+                await self.send_stream("status", "Executando em modo Agent...")
+
+            for chunk in self.interpreter.chat(final_prompt, stream=True, display=False):
                 if isinstance(chunk, dict) and "content" in chunk:
-                    # Roteia os tipos (message, code, console)
                     ctype = chunk.get("type", "message")
-                    if ctype == "message":
-                        await self.send_stream("message", chunk["content"])
-                    elif ctype == "code":
-                        await self.send_stream("code", chunk["content"])
-                    elif ctype == "console":
-                        await self.send_stream("console", chunk["content"])
+                    # O OI usa "message" (fala da IA), "code" (código executado), "console" (saída)
+                    if ctype in ["message", "code", "console"]:
+                        await self.send_stream(ctype, chunk["content"])
                         
-            # Quando acaba a tarefa...
+            # Quando a execução finaliza
+            
+            # Retorno automático para Agent se estiver em Plan (conforme contrato de que plano finalizado volta pra execução)
+            if mode == "plan":
+                # Sinaliza ao servidor que deve mudar o estado globalmente
+                # Para evitar dependência circular aqui, enviaremos um stream system
+                await self.send_stream("system", "MODO_PLAN_CONCLUIDO")
+                
             self.set_status("idle", None)
-            await self.send_stream("status", "Tarefa concluída")
+            await self.send_stream("status", "Tarefa concluída.")
             
         except Exception as e:
             logger.error(f"Erro na execução da tarefa: {e}")
             self.set_status("idle", None)
             await self.send_stream("status", f"Erro: {str(e)}")
+
 

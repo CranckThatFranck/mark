@@ -16,9 +16,20 @@ logger = logging.getLogger("JarvisServer")
 # Runner global instanciado
 agent_runner = None
 
+
 async def send_stream_cb(msg_type: str, content: str):
+    if msg_type == "system" and content == "MODO_PLAN_CONCLUIDO":
+        # Retorno automático
+        if global_state.mode == "plan":
+            global_state.mode = "agent"
+            from config_manager import save_config
+            save_config({"mode": global_state.mode, "model": global_state.model})
+            asyncio.create_task(broadcast_state())
+        return
+
     if not active_connections: return
     msg = ProtocolParser.build_stream_message(msg_type, content)
+
     for ws in active_connections:
         try:
             await ws.send(msg)
