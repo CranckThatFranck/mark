@@ -50,3 +50,16 @@
 ## Fazendo
 
 ## A fazer
+- Atualizar o modelo padrão de inicialização para vertex_ai/gemini-3.1-pro-preview-customtools.
+- Configurar suporte completo aos modelos Vertex AI, mantendo suporte ao Gemini.
+- Corrigir e padronizar o tratamento de variáveis VERTEXAI_PROJECT, VERTEXAI_LOCATION e GOOGLE_APPLICATION_CREDENTIALS.
+- Implementar seleção de provedor baseada nas chaves de API/Vertex.
+- Implementar suporte à configuração de região padrão (us-east5) e override por modelo no backend.
+- Atualizar o frontend para listar os novos modelos Vertex AI.
+- Atualizar o frontend para permitir a inclusão de Custom Model ID.
+- Atualizar o frontend para permitir escolha ou edição de Região para Hotswap de modelos.
+- Atualizar contrato/configuração (config_manager.py e protocol.py) para suportar modelo dinâmico e região.
+- Atualizar o README.md detalhando as novas configurações de Vertex AI, chaves, regiões e exemplos de caminhos de credenciais.
+- Validar backend com testes reais subindo no novo modelo e trocando de região dinamicamente.
+- Regenerar pacotes .deb e .rpm de backend e frontend após atualizações da stack Vertex.
+- Validar artefatos finais de empacotamento com as novas mudanças embutidas.
