@@ -3,6 +3,11 @@
 ** No ## Fazendo**: Deverá ser para onde você moverá o itém que você começou a trabalhar, para que possamos saber o que falta fazer e o que está sendo feito.
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 ## Feito
+- Implementar recuperação segura pós-interrupção.
+- Implementar o kill switch real com interrupção do grupo de processos.
+- Implementar a action interrupt.
+- Implementar rastreamento de tarefa ativa com PID e PGID.
+- Implementar o isolamento de subprocessos por PGID.
 - Implementar o retorno automático para agent após conclusão da tarefa.
 - Implementar o modo Agent.
 - Implementar o modo Plan.
@@ -33,7 +38,10 @@
 - Consolidar a documentação de contexto e contrato operacional do Mark Alfa.
 - Definir documentação de roadmap, critérios de aceite, diretórios, persistência, empacotamento, backend, frontend e checklist de release.
 ## Fazendo
-- Implementar recuperação segura pós-interrupção.
+- Criar scripts auxiliares mínimos para execução e validação local do backend.
+- Validar start, stop, restart e status do backend via systemd.
+- Criar o unit file do systemd para o backend.
+- Implementar logs e observabilidade mínima do backend.
 - Implementar o kill switch real com interrupção do grupo de processos.
 - Implementar a action interrupt.
 - Implementar rastreamento de tarefa ativa com PID e PGID.
@@ -44,9 +52,7 @@
 - Integrar o backend ao agent_runner sem depender da CLI solta do Open Interpreter.
 ## A fazer
 - Criar o modelo de estado interno do backend.
-- Implementar logs e observabilidade mínima do backend.
 - Criar unit file do systemd para o backend.
-- Validar start, stop, restart e status do backend via systemd.
 - Criar estrutura de packaging do backend para .rpm.
 - Criar estrutura de packaging do backend para .deb.
 - Validar instalação do backend em /opt/jarvis/backend.

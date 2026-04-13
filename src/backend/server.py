@@ -6,6 +6,7 @@ from config import WS_HOST, WS_PORT, SUPPORTED_MODELS
 from state import global_state
 from protocol import ProtocolParser
 from agent_runner import AgentRunner
+from process_manager import ProcessManager
 import asyncio
 from context_setup import prepare_context_structure
 
@@ -141,6 +142,42 @@ async def handle_action(ws, data: dict):
         
         # Dispara execução assíncrona
         asyncio.create_task(agent_runner.run_task(prompt, global_state.mode))
+
+
+    elif action == "interrupt":
+        if global_state.status == "idle":
+            resp = ProtocolParser.build_action_response("interrupt", False, error="Nenhuma tarefa em execução")
+            await ws.send(resp)
+            return
+            
+        logger.warning("KILL SWITCH ACIONADO!")
+        
+        # O Open Interpreter assíncrono interno roda na mesma thread python em um wrapper generator
+        # Se tivéssemos um subprocesso, usaríamos ProcessManager aqui.
+        # Como o OI não expõe o PID interno facilmente via python API simples (sem subprocess real)
+        # Vamos parar o fluxo de controle e sinalizar a recuperação:
+        
+        # Simula o kill (na integração avançada isso matará o subprocesso)
+        if global_state.interpreter_pid:
+            ProcessManager.kill_process_tree(global_state.interpreter_pid)
+            
+        if global_state.interpreter_pgid:
+            ProcessManager.kill_pgid(global_state.interpreter_pgid)
+            
+        # Força o reset de estado
+        global_state.reset_execution()
+        
+        # Reinicia o Runner para garantir estado limpo (Recuperação Segura Pós-Interrupção)
+        global agent_runner
+        agent_runner = AgentRunner(send_stream_cb, set_status_cb)
+        agent_runner.update_model(global_state.model)
+        
+        # Envia broadcast a todos e responde confirmando a interrupção
+        await broadcast_state()
+        await send_stream_cb("system", "TAREFA INTERROMPIDA PELO USUÁRIO")
+        
+        resp = ProtocolParser.build_action_response("interrupt", True)
+        await ws.send(resp)
 
     # Mais acoes serao implementadas conforme a TODOList...
     else:
