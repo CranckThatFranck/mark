@@ -8,7 +8,11 @@ logger = logging.getLogger(__name__)
 CONFIG_FILE = BASE_DIR / "config.json"
 
 def load_config():
-    """Carrega as configurações persistidas, ou retorna as padrões se não existir."""
+    """Carrega as configuracoes persistidas, ou retorna as padroes se nao existir."""
+    try:
+        BASE_DIR.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        logger.error(f"Failed to create BASE_DIR {BASE_DIR}: {e}")
     default_config = {
         "mode": "agent",
         "model": DEFAULT_MODEL

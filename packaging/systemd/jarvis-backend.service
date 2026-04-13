@@ -1,39 +1,33 @@
-echo "##active_line3##"
-[Unit]
-echo "##active_line4##"
-Description=Mark Alfa Backend Server
-echo "##active_line5##"
-After=network.target
-echo "##active_line6##"
-
 echo "##active_line7##"
-[Service]
+[Unit]
 echo "##active_line8##"
-Type=simple
+Description=Mark Alfa Backend Server
 echo "##active_line9##"
-User=root
+After=network.target
 echo "##active_line10##"
-# O caminho exato da instalação futura será /opt/jarvis/backend/server.py
-echo "##active_line11##"
-WorkingDirectory=/opt/jarvis/backend
-echo "##active_line12##"
-# Presume que haverá um venv ou que usaremos o python3 do sistema
-echo "##active_line13##"
-ExecStart=/usr/bin/python3 /opt/jarvis/backend/server.py
-echo "##active_line14##"
-Restart=always
-echo "##active_line15##"
-RestartSec=5
-echo "##active_line16##"
-# Isola o grupo de processos
-echo "##active_line17##"
-KillMode=mixed
-echo "##active_line18##"
-TimeoutStopSec=10
-echo "##active_line19##"
 
+echo "##active_line11##"
+[Service]
+echo "##active_line12##"
+Type=simple
+echo "##active_line13##"
+User=root
+echo "##active_line14##"
+WorkingDirectory=/opt/jarvis/backend
+echo "##active_line15##"
+ExecStart=/opt/jarvis/venv/bin/python /opt/jarvis/backend/server.py
+echo "##active_line16##"
+Restart=always
+echo "##active_line17##"
+RestartSec=5
+echo "##active_line18##"
+KillMode=mixed
+echo "##active_line19##"
+TimeoutStopSec=10
 echo "##active_line20##"
-[Install]
+
 echo "##active_line21##"
-WantedBy=multi-user.target
+[Install]
 echo "##active_line22##"
+WantedBy=multi-user.target
+echo "##active_line23##"
