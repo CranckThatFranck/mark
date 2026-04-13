@@ -72,11 +72,7 @@ class JarvisApp(ctk.CTk):
         label = ctk.CTkLabel(self.config_window, text="Configurações do Mark Alfa", font=ctk.CTkFont(size=16, weight="bold"))
         label.pack(pady=20)
         
-        info = ctk.CTkLabel(self.config_window, text="O ambiente Cloud e chaves são lidos
-automaticamente pelo sistema.
-
-Para atualizar modelo ou modo,
-use o menu principal.")
+        info = ctk.CTkLabel(self.config_window, text="O ambiente Cloud e chaves são lidos\nautomaticamente pelo sistema.\n\nPara atualizar modelo ou modo,\nuse o menu principal.")
         info.pack(pady=10)
         
         btn = ctk.CTkButton(self.config_window, text="Sincronizar Estado", command=self.force_sync)
