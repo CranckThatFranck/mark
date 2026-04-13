@@ -1,0 +1,11 @@
+##active_line2##
+##active_line3##
+##active_line4##
+##active_line5##
+##active_line6##
+2026-04-13 16:40:49,227 - JarvisServer - INFO - Iniciando Jarvis Backend em ws://127.0.0.1:8765
+2026-04-13 16:40:49,452 - websockets.server - INFO - server listening on 127.0.0.1:8765
+2026-04-13 16:40:49,892 - websockets.server - INFO - connection open
+2026-04-13 16:40:49,892 - JarvisServer - INFO - Nova conexão WebSocket de ('127.0.0.1', 38432)
+2026-04-13 16:40:49,894 - JarvisServer - INFO - Ação recebida: healthcheck
+2026-04-13 16:40:49,894 - JarvisServer - INFO - Ação recebida: get_models

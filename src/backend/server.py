@@ -59,6 +59,7 @@ async def broadcast_state():
 
 async def handle_action(ws, data: dict):
     """Roteador principal de ações."""
+    global agent_runner
     action = data.get("action")
     payload = data.get("payload", {})
     
@@ -168,7 +169,6 @@ async def handle_action(ws, data: dict):
         global_state.reset_execution()
         
         # Reinicia o Runner para garantir estado limpo (Recuperação Segura Pós-Interrupção)
-        global agent_runner
         agent_runner = AgentRunner(send_stream_cb, set_status_cb)
         agent_runner.update_model(global_state.model)
         
