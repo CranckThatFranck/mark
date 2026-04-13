@@ -5,10 +5,30 @@ import json
 from config import WS_HOST, WS_PORT, SUPPORTED_MODELS
 from state import global_state
 from protocol import ProtocolParser
+from agent_runner import AgentRunner
+import asyncio
 from context_setup import prepare_context_structure
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("JarvisServer")
+
+
+# Runner global instanciado
+agent_runner = None
+
+async def send_stream_cb(msg_type: str, content: str):
+    if not active_connections: return
+    msg = ProtocolParser.build_stream_message(msg_type, content)
+    for ws in active_connections:
+        try:
+            await ws.send(msg)
+        except:
+            pass
+
+def set_status_cb(status: str, task: str):
+    global_state.status = status
+    global_state.active_task = task
+    asyncio.create_task(broadcast_state())
 
 # Conjunto global de conexões WebSocket ativas (frontend e master)
 active_connections = set()
@@ -91,6 +111,26 @@ async def handle_action(ws, data: dict):
             resp = ProtocolParser.build_action_response("change_mode", False, error="Modo inválido")
         await ws.send(resp)
 
+
+    elif action == "execute_task":
+        prompt = payload.get("prompt")
+        if not prompt:
+            resp = ProtocolParser.build_action_response("execute_task", False, error="Prompt vazio")
+            await ws.send(resp)
+            return
+            
+        if global_state.status == "running":
+            resp = ProtocolParser.build_action_response("execute_task", False, error="Uma tarefa já está em execução")
+            await ws.send(resp)
+            return
+            
+        # Responde confirmando que começou
+        resp = ProtocolParser.build_action_response("execute_task", True)
+        await ws.send(resp)
+        
+        # Dispara execução assíncrona
+        asyncio.create_task(agent_runner.run_task(prompt, global_state.mode))
+
     # Mais acoes serao implementadas conforme a TODOList...
     else:
         logger.warning(f"Ação desconhecida ou não implementada: {action}")
@@ -123,6 +163,10 @@ async def connection_handler(websocket): # removed 'path' as it's deprecated in 
 async def start_server():
     """Inicializa o servidor backend."""
     prepare_context_structure()
+
+    global agent_runner
+    agent_runner = AgentRunner(send_stream_cb, set_status_cb)
+    agent_runner.update_model(global_state.model)
     
     logger.info(f"Iniciando Jarvis Backend em ws://{WS_HOST}:{WS_PORT}")
     async with websockets.serve(connection_handler, WS_HOST, WS_PORT):

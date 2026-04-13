@@ -3,6 +3,8 @@
 ** No ## Fazendo**: Deverá ser para onde você moverá o itém que você começou a trabalhar, para que possamos saber o que falta fazer e o que está sendo feito.
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 ## Feito
+- Integrar o backend ao agent_runner sem depender da CLI solta do Open Interpreter.
+- Implementar a action execute_task.
 - Criar o invólucro controlado do Open Interpreter em src/backend/agent_runner.py.
 - Implementar a ação update_config.
 - Implementar persistência de configuração do backend.
@@ -27,14 +29,13 @@
 - Consolidar a documentação de contexto e contrato operacional do Mark Alfa.
 - Definir documentação de roadmap, critérios de aceite, diretórios, persistência, empacotamento, backend, frontend e checklist de release.
 ## Fazendo
-- Implementar a action execute_task.
+- Implementar o retorno automático para agent após conclusão da tarefa.
+- Implementar o modo Agent.
+- Implementar o modo Plan.
+- Implementar o fluxo de mensagens user, status, message, code, console e action_response.
 - Integrar o backend ao agent_runner sem depender da CLI solta do Open Interpreter.
 ## A fazer
 - Criar o modelo de estado interno do backend.
-- Implementar o fluxo de mensagens user, status, message, code, console e action_response.
-- Implementar o modo Plan.
-- Implementar o modo Agent.
-- Implementar o retorno automático para agent após conclusão da tarefa.
 - Implementar o isolamento de subprocessos por PGID.
 - Implementar rastreamento de tarefa ativa com PID e PGID.
 - Implementar a action interrupt.
