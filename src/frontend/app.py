@@ -8,12 +8,21 @@ from ws_client import JarvisWSClient
 
 # Import das configs que definem a lista de modelos (podemos ler hardcoded se preferir, ou usar a requisicao get_models)
 SUPPORTED_MODELS = [
+    "vertex_ai/gemini-3.1-pro-preview-customtools",
+    "vertex_ai/gemini-3.1-pro-preview",
+    "vertex_ai/gemini-3-flash-preview",
+    "vertex_ai/gemini-3.1-flash-lite-preview",
+    "vertex_ai/gemini-2.5-flash",
+    "vertex_ai/gemini-2.5-pro",
+    "vertex_ai/llama-4-scout-17b-16e-instruct-maas",
+    "vertex_ai/llama-4-maverick-17b-128e-instruct-maas",
     "gemini-2.5-flash",
     "gemini-2.5-pro",
     "gpt-4o",
     "gpt-4o-mini",
     "claude-3-opus-20240229",
-    "claude-3-sonnet-20240229"
+    "claude-3-sonnet-20240229",
+    "Customizado (Digitar ID)"
 ]
 
 class JarvisApp(ctk.CTk):
@@ -53,11 +62,15 @@ class JarvisApp(ctk.CTk):
         self.model_menu = ctk.CTkOptionMenu(self.sidebar_frame, values=SUPPORTED_MODELS, variable=self.model_var, command=self.on_model_change)
         self.model_menu.grid(row=3, column=0, padx=20, pady=10)
         
+        self.region_var = ctk.StringVar(value="us-east5")
+        self.region_menu = ctk.CTkOptionMenu(self.sidebar_frame, values=["us-east5", "us-central1", "us-east4", "Customizada"], variable=self.region_var, command=self.on_region_change)
+        self.region_menu.grid(row=4, column=0, padx=20, pady=10)
+        
         self.config_btn = ctk.CTkButton(self.sidebar_frame, text="Configurações", command=self.open_config_window)
-        self.config_btn.grid(row=4, column=0, padx=20, pady=10)
+        self.config_btn.grid(row=5, column=0, padx=20, pady=10)
         
         self.kill_btn = ctk.CTkButton(self.sidebar_frame, text="KILL SWITCH", fg_color="red", hover_color="darkred", command=self.on_kill_switch)
-        self.kill_btn.grid(row=6, column=0, padx=20, pady=20)
+        self.kill_btn.grid(row=7, column=0, padx=20, pady=20)
 
     def open_config_window(self):
         if hasattr(self, "config_window") and self.config_window.winfo_exists():
@@ -138,7 +151,19 @@ class JarvisApp(ctk.CTk):
         elif msg_type == "sync_state":
             state = data.get("state", {})
             self.mode_var.set(state.get("mode", "agent"))
-            self.model_var.set(state.get("model", "gemini-2.5-flash"))
+            
+            # Se vier um modelo/regiao nova custom q nao ta no select option a gente atualiza a UI injetando
+            m = state.get("model", "vertex_ai/gemini-3.1-pro-preview-customtools")
+            if m not in SUPPORTED_MODELS:
+                SUPPORTED_MODELS.insert(0, m)
+                self.model_menu.configure(values=SUPPORTED_MODELS)
+            self.model_var.set(m)
+            
+            r = state.get("region", "us-east5")
+            if r not in ["us-east5", "us-central1", "us-east4", "Customizada"]:
+                self.region_menu.configure(values=[r, "us-east5", "us-central1", "us-east4", "Customizada"])
+            self.region_var.set(r)
+            
             status = state.get("status", "idle")
             
             if status == "running":
@@ -183,8 +208,29 @@ class JarvisApp(ctk.CTk):
     def on_mode_change(self, value):
         self.send_action_async("change_mode", {"mode": value})
         
-    def on_model_change(self, value):
-        self.send_action_async("change_model", {"model": value})
+def on_model_change(self, value):
+        if value == "Customizado (Digitar ID)":
+            dialog = ctk.CTkInputDialog(text="Digite o ID do Modelo (ex: vertex_ai/gemini... ou openai/gpt-4...):", title="Modelo Customizado")
+            val = dialog.get_input()
+            if val:
+                self.model_var.set(val)
+                self.send_action_async("change_model", {"model": val, "region": self.region_var.get()})
+            else:
+                self.model_var.set(SUPPORTED_MODELS[0]) # reverte
+        else:
+            self.send_action_async("change_model", {"model": value, "region": self.region_var.get()})
+            
+    def on_region_change(self, value):
+        if value == "Customizada":
+            dialog = ctk.CTkInputDialog(text="Digite a região (ex: us-central1):", title="Região Customizada")
+            val = dialog.get_input()
+            if val:
+                self.region_var.set(val)
+                self.send_action_async("change_model", {"model": self.model_var.get(), "region": val})
+            else:
+                self.region_var.set("us-east5")
+        else:
+            self.send_action_async("change_model", {"model": self.model_var.get(), "region": value})
 
     def on_kill_switch(self):
         self.send_action_async("interrupt")

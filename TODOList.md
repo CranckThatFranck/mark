@@ -4,6 +4,9 @@
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 
 ## Feito
+- Atualizar o frontend para permitir escolha ou edição de Região para Hotswap de modelos.
+- Atualizar o frontend para permitir a inclusão de Custom Model ID.
+- Atualizar o frontend para listar os novos modelos Vertex AI.
 - Atualizar contrato/configuração (config_manager.py e protocol.py) para suportar modelo dinâmico e região.
 - Implementar suporte à configuração de região padrão (us-east5) e override por modelo no backend.
 - Implementar seleção de provedor baseada nas chaves de API/Vertex.
@@ -54,7 +57,7 @@
 - Integrar o backend ao agent_runner sem depender da CLI solta do Open Interpreter.
 
 ## Fazendo
-- Atualizar o frontend para permitir escolha ou edição de Região para Hotswap de modelos.
+- Atualizar o README.md detalhando as novas configurações de Vertex AI, chaves, regiões e exemplos de caminhos de credenciais.
 - Atualizar o frontend para permitir a inclusão de Custom Model ID.
 - Atualizar o frontend para listar os novos modelos Vertex AI.
 
