@@ -3,6 +3,11 @@
 ** No ## Fazendo**: Deverá ser para onde você moverá o itém que você começou a trabalhar, para que possamos saber o que falta fazer e o que está sendo feito.
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 ## Feito
+- Validar instalação do frontend em /opt/jarvis/frontend.
+- Criar scripts e arquivos necessários de pós-instalação do frontend, se aplicável.
+- Criar estrutura de packaging do frontend para .deb.
+- Criar estrutura de packaging do frontend para .rpm.
+- Validar instalação do backend em /opt/jarvis/backend.
 - Criar scripts e arquivos necessários de pós-instalação do backend, se aplicável.
 - Criar estrutura de packaging do backend para .deb.
 - Criar estrutura de packaging do backend para .rpm.
@@ -58,7 +63,11 @@
 - Consolidar a documentação de contexto e contrato operacional do Mark Alfa.
 - Definir documentação de roadmap, critérios de aceite, diretórios, persistência, empacotamento, backend, frontend e checklist de release.
 ## Fazendo
-- Validar instalação do frontend em /opt/jarvis/frontend.
+- Atualizar o README.md do projeto com explicação dos caminhos do produto instalável futuro.
+- Atualizar o README.md do projeto com instruções de operação, status, interrupção e troubleshooting.
+- Atualizar o README.md do projeto com instruções de instalação do frontend.
+- Atualizar o README.md do projeto com instruções de instalação do backend.
+- Atualizar o README.md do projeto com requisitos, dependências e visão geral da aplicação.
 - Criar scripts e arquivos necessários de pós-instalação do frontend, se aplicável.
 - Criar estrutura de packaging do frontend para .deb.
 - Criar estrutura de packaging do frontend para .rpm.
