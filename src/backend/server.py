@@ -1,0 +1,116 @@
+import asyncio
+import websockets
+import logging
+import json
+from config import WS_HOST, WS_PORT, SUPPORTED_MODELS
+from state import global_state
+from protocol import ProtocolParser
+from context_setup import prepare_context_structure
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = logging.getLogger("JarvisServer")
+
+# Conjunto global de conexões WebSocket ativas (frontend e master)
+active_connections = set()
+
+async def broadcast_state():
+    """Envia o estado atualizado para todos os clientes conectados."""
+    if not active_connections:
+        return
+        
+    state_msg = ProtocolParser.build_sync_state(global_state.to_dict())
+    for ws in active_connections:
+        try:
+            await ws.send(state_msg)
+        except Exception as e:
+            logger.error(f"Erro ao enviar sync_state: {e}")
+
+async def handle_action(ws, data: dict):
+    """Roteador principal de ações."""
+    action = data.get("action")
+    payload = data.get("payload", {})
+    
+    logger.info(f"Ação recebida: {action}")
+    
+    if action == "healthcheck":
+        resp = ProtocolParser.build_action_response("healthcheck", True, data={"status": "ok"})
+        await ws.send(resp)
+        
+    elif action == "get_status":
+        resp = ProtocolParser.build_action_response("get_status", True, data=global_state.to_dict())
+        await ws.send(resp)
+        
+    elif action == "get_models":
+        resp = ProtocolParser.build_action_response("get_models", True, data={"models": SUPPORTED_MODELS})
+        await ws.send(resp)
+        
+    elif action == "get_config":
+        # Retorna config atual (no futuro, pode ler de um json de config persistido)
+        resp = ProtocolParser.build_action_response("get_config", True, data={
+            "mode": global_state.mode,
+            "model": global_state.model
+        })
+        await ws.send(resp)
+        
+    elif action == "change_model":
+        model = payload.get("model")
+        if model in SUPPORTED_MODELS:
+            global_state.model = model
+            await broadcast_state()
+            resp = ProtocolParser.build_action_response("change_model", True)
+        else:
+            resp = ProtocolParser.build_action_response("change_model", False, error="Modelo não suportado")
+        await ws.send(resp)
+        
+    elif action == "change_mode":
+        mode = payload.get("mode")
+        if mode in ["agent", "plan"]:
+            global_state.mode = mode
+            await broadcast_state()
+            resp = ProtocolParser.build_action_response("change_mode", True)
+        else:
+            resp = ProtocolParser.build_action_response("change_mode", False, error="Modo inválido")
+        await ws.send(resp)
+        
+    # Mais acoes serao implementadas conforme a TODOList...
+    else:
+        logger.warning(f"Ação desconhecida ou não implementada: {action}")
+        resp = ProtocolParser.build_action_response(action, False, error="Ação desconhecida")
+        await ws.send(resp)
+
+async def connection_handler(websocket): # removed 'path' as it's deprecated in websockets
+    """Gerencia o ciclo de vida de uma conexão WebSocket."""
+    logger.info(f"Nova conexão WebSocket de {websocket.remote_address}")
+    active_connections.add(websocket)
+    
+    try:
+        # 1. Envia sync_state imediato
+        state_msg = ProtocolParser.build_sync_state(global_state.to_dict())
+        await websocket.send(state_msg)
+        
+        # 2. Loop de escuta
+        async for message in websocket:
+            data = ProtocolParser.parse_message(message)
+            if data:
+                await handle_action(websocket, data)
+                
+    except websockets.exceptions.ConnectionClosed:
+        logger.info(f"Conexão fechada: {websocket.remote_address}")
+    except Exception as e:
+        logger.error(f"Erro inesperado na conexão: {e}")
+    finally:
+        active_connections.remove(websocket)
+
+async def start_server():
+    """Inicializa o servidor backend."""
+    prepare_context_structure()
+    
+    logger.info(f"Iniciando Jarvis Backend em ws://{WS_HOST}:{WS_PORT}")
+    async with websockets.serve(connection_handler, WS_HOST, WS_PORT):
+        await asyncio.Future()  # Roda indefinidamente
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(start_server())
+    except KeyboardInterrupt:
+        logger.info("Servidor interrompido pelo usuário")
