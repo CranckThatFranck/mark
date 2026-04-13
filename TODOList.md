@@ -3,6 +3,8 @@
 ** No ## Fazendo**: Deverá ser para onde você moverá o itém que você começou a trabalhar, para que possamos saber o que falta fazer e o que está sendo feito.
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 ## Feito
+- Implementar validação e roteamento básico das ações do protocolo.
+- Criar o arquivo src/backend/protocol.py ou equivalente para centralizar o contrato JSON.
 - Implementar o modelo de estado interno do backend.
 - Criar o arquivo src/backend/state.py ou equivalente para o estado interno do backend.
 - Implementar a preparação da estrutura mínima de contexto necessária ao backend.
@@ -17,9 +19,8 @@
 - Consolidar a documentação de contexto e contrato operacional do Mark Alfa.
 - Definir documentação de roadmap, critérios de aceite, diretórios, persistência, empacotamento, backend, frontend e checklist de release.
 ## Fazendo
-- Criar o arquivo src/backend/protocol.py ou equivalente para centralizar o contrato JSON.
-## A fazer
 - Criar o arquivo src/backend/server.py.
+## A fazer
 - Implementar o chassi inicial do servidor WebSocket.
 - Implementar o envio de sync_state ao conectar.
 - Implementar o parser e roteador básico de ações JSON.
