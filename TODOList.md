@@ -2,23 +2,20 @@
 **Inicie a leitura dos iténs em A fazer**: Está será sua lista de to-do divido em itens de ações. Cada workiten será contido em uma linha iniciado em - e finalizado em . 
 ** No ## Fazendo**: Deverá ser para onde você moverá o itém que você começou a trabalhar, para que possamos saber o que falta fazer e o que está sendo feito.
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
-
 ## Feito
+- Declarar o modelo padrão e a lista inicial de modelos suportados no backend.
+- Implementar a detecção de HOME, Documents, Documentos e fallback para o contexto do produto instalável.
+- Implementar a resolução de caminhos do ambiente atual e do produto instalável futuro em config.py.
+- Implementar as constantes principais do backend em config.py.
 - Criar o arquivo src/backend/config.py.
 - Criar a estrutura inicial de diretórios do repositório conforme a documentação.
 - Atualizar o README.md vazio da raiz do repositório com um esqueleto inicial da aplicação backend e frontend.
 - Revisar todos os documentos do AgentContext e confirmar consistência final entre contexto atual do agente e produto instalável futuro.
 - Consolidar a documentação de contexto e contrato operacional do Mark Alfa.
 - Definir documentação de roadmap, critérios de aceite, diretórios, persistência, empacotamento, backend, frontend e checklist de release.
-
 ## Fazendo
-- Implementar as constantes principais do backend em config.py.
-
-## A fazer
-- Implementar a resolução de caminhos do ambiente atual e do produto instalável futuro em config.py.
-- Implementar a detecção de HOME, Documents, Documentos e fallback para o contexto do produto instalável.
-- Declarar o modelo padrão e a lista inicial de modelos suportados no backend.
 - Implementar a preparação da estrutura mínima de contexto necessária ao backend.
+## A fazer
 - Criar o arquivo src/backend/server.py.
 - Implementar o chassi inicial do servidor WebSocket.
 - Implementar o envio de sync_state ao conectar.
