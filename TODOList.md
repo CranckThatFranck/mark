@@ -3,6 +3,7 @@
 ** No ## Fazendo**: Deverá ser para onde você moverá o itém que você começou a trabalhar, para que possamos saber o que falta fazer e o que está sendo feito.
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 ## Feito
+- Implementar a preparação da estrutura mínima de contexto necessária ao backend.
 - Declarar o modelo padrão e a lista inicial de modelos suportados no backend.
 - Implementar a detecção de HOME, Documents, Documentos e fallback para o contexto do produto instalável.
 - Implementar a resolução de caminhos do ambiente atual e do produto instalável futuro em config.py.
@@ -14,7 +15,7 @@
 - Consolidar a documentação de contexto e contrato operacional do Mark Alfa.
 - Definir documentação de roadmap, critérios de aceite, diretórios, persistência, empacotamento, backend, frontend e checklist de release.
 ## Fazendo
-- Implementar a preparação da estrutura mínima de contexto necessária ao backend.
+- Criar o arquivo src/backend/state.py ou equivalente para o estado interno do backend.
 ## A fazer
 - Criar o arquivo src/backend/server.py.
 - Implementar o chassi inicial do servidor WebSocket.
