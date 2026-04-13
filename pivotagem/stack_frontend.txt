@@ -1,0 +1,25 @@
+echo "##active_line2##"
+Decisão Oficial: CustomTkinter para Frontend do Mark Alfa
+echo "##active_line3##"
+Data: $(date '+%Y-%m-%d')
+echo "##active_line4##"
+
+echo "##active_line5##"
+Motivo:
+echo "##active_line6##"
+O ecossistema original exigiu testar PyQt6. Porém, devido ao core dump no hardware do Gateway NV55c (Pentium P6200 não suporta instruções SSE4.1 requeridas pelos binários recentes do Qt6), foi validado anteriormente que CustomTkinter é a única biblioteca gráfica estável, limpa e que roda nativamente sem crash neste ambiente e mantendo a aparência escura e moderna.
+echo "##active_line7##"
+
+echo "##active_line8##"
+Para garantir que o produto Mark Alfa funcione de forma universal na máquina hospedeira original sem problemas legados e não onere RAM como o Electron faria, o frontend em `src/frontend` será oficialmente feito em Python usando `customtkinter`.
+echo "##active_line9##"
+
+echo "##active_line10##"
+Impacto no Projeto:
+echo "##active_line11##"
+- O frontend importará `customtkinter` e `websockets`.
+echo "##active_line12##"
+- Threading ou async-tkinter serão usados para manter a conexão WS não bloqueante.
+echo "##active_line13##"
+- Nenhuma dependência externa C++ complexa é necessária.
+echo "##active_line14##"

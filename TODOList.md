@@ -3,6 +3,11 @@
 ** No ## Fazendo**: Deverá ser para onde você moverá o itém que você começou a trabalhar, para que possamos saber o que falta fazer e o que está sendo feito.
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 ## Feito
+- Implementar a tela principal com chat, seletor de modo, seletor de modelo e kill switch.
+- Implementar a janela principal do frontend.
+- Criar o cliente WebSocket do frontend.
+- Criar a estrutura inicial do frontend em src/frontend.
+- Definir oficialmente a stack do frontend e registrar a decisão no repositório.
 - Criar scripts auxiliares mínimos para execução e validação local do backend.
 - Validar start, stop, restart e status do backend via systemd.
 - Criar o unit file do systemd para o backend.
@@ -42,7 +47,12 @@
 - Consolidar a documentação de contexto e contrato operacional do Mark Alfa.
 - Definir documentação de roadmap, critérios de aceite, diretórios, persistência, empacotamento, backend, frontend e checklist de release.
 ## Fazendo
-- Implementar a tela principal com chat, seletor de modo, seletor de modelo e kill switch.
+- Implementar estado visual coerente com o backend no frontend.
+- Implementar persistência visual mínima do frontend.
+- Implementar reconexão e tolerância a falhas no frontend.
+- Implementar envio de execute_task, change_model, interrupt, get_status, get_config e update_config no frontend.
+- Implementar a tela de configurações do frontend.
+- Implementar área de exibição de message, code, console, status e system no frontend.
 - Implementar a janela principal do frontend.
 - Criar o cliente WebSocket do frontend.
 - Criar a estrutura inicial do frontend em src/frontend.
@@ -65,11 +75,7 @@
 - Criar estrutura de packaging do backend para .deb.
 - Validar instalação do backend em /opt/jarvis/backend.
 - Definir oficialmente a stack do frontend.
-- Implementar a tela de configurações do frontend.
 - Implementar exibição de message, code, console, status e system no frontend.
-- Implementar envio de execute_task, change_model, interrupt, get_status, get_config e update_config no frontend.
-- Implementar reconexão e tolerância a falhas no frontend.
-- Implementar persistência visual mínima do frontend.
 - Criar estrutura de packaging do frontend para .rpm.
 - Criar estrutura de packaging do frontend para .deb.
 - Validar instalação do frontend em /opt/jarvis/frontend.
