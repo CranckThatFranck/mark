@@ -1,9 +1,0 @@
-echo "##active_line49##"
-#!/bin/sh
-echo "##active_line50##"
-set -e
-echo "##active_line51##"
-update-desktop-database || true
-echo "##active_line52##"
-exit 0
-echo "##active_line53##"

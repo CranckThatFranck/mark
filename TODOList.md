@@ -4,6 +4,7 @@
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 
 ## Feito
+- Criar estrutura de packaging do backend para .rpm.
 - Criar estrutura de packaging do backend para .deb.
 - Validar start, stop, restart e status do backend via systemd.
 - Validar instalação do backend em /opt/jarvis/backend.
@@ -36,10 +37,9 @@
 - Integrar o backend ao agent_runner sem depender da CLI solta do Open Interpreter.
 
 ## Fazendo
-- Criar estrutura de packaging do backend para .rpm.
+- Criar estrutura de packaging do frontend para .deb.
 
 ## A fazer
-- Criar estrutura de packaging do frontend para .deb.
 - Criar estrutura de packaging do frontend para .rpm.
 - Atualizar o README.md do projeto com instruções de instalação do frontend.
 - Atualizar o README.md do projeto com instruções de instalação do backend.

@@ -1,3 +1,4 @@
+%define debug_package %{nil}
 Name:           jarvis-backend
 Version:        1.0.0
 Release:        1%{?dist}
@@ -18,7 +19,7 @@ Servidor Backend do Mark Alfa (Open Interpreter encapsulado).
 %install
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/opt/jarvis/backend
-cp -r src/backend/* $RPM_BUILD_ROOT/opt/jarvis/backend/
+cp -r backend/* $RPM_BUILD_ROOT/opt/jarvis/backend/
 
 mkdir -p $RPM_BUILD_ROOT%{_unitdir}
 cp packaging/systemd/jarvis-backend.service $RPM_BUILD_ROOT%{_unitdir}/
