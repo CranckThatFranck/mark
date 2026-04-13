@@ -33,10 +33,11 @@ class JarvisApp(ctk.CTk):
         self.build_sidebar()
         self.build_main_area()
         
+
     def build_sidebar(self):
         self.sidebar_frame = ctk.CTkFrame(self, width=200, corner_radius=0)
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
-        self.sidebar_frame.grid_rowconfigure(4, weight=1)
+        self.sidebar_frame.grid_rowconfigure(5, weight=1)
         
         self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="Mark Alfa", font=ctk.CTkFont(size=20, weight="bold"))
         self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
@@ -52,9 +53,40 @@ class JarvisApp(ctk.CTk):
         self.model_menu = ctk.CTkOptionMenu(self.sidebar_frame, values=SUPPORTED_MODELS, variable=self.model_var, command=self.on_model_change)
         self.model_menu.grid(row=3, column=0, padx=20, pady=10)
         
-        self.kill_btn = ctk.CTkButton(self.sidebar_frame, text="KILL SWITCH", fg_color="red", hover_color="darkred", command=self.on_kill_switch)
-        self.kill_btn.grid(row=5, column=0, padx=20, pady=20)
+        self.config_btn = ctk.CTkButton(self.sidebar_frame, text="Configurações", command=self.open_config_window)
+        self.config_btn.grid(row=4, column=0, padx=20, pady=10)
         
+        self.kill_btn = ctk.CTkButton(self.sidebar_frame, text="KILL SWITCH", fg_color="red", hover_color="darkred", command=self.on_kill_switch)
+        self.kill_btn.grid(row=6, column=0, padx=20, pady=20)
+
+    def open_config_window(self):
+        if hasattr(self, "config_window") and self.config_window.winfo_exists():
+            self.config_window.focus()
+            return
+            
+        self.config_window = ctk.CTkToplevel(self)
+        self.config_window.title("Configurações")
+        self.config_window.geometry("400x300")
+        self.config_window.transient(self)
+        
+        label = ctk.CTkLabel(self.config_window, text="Configurações do Mark Alfa", font=ctk.CTkFont(size=16, weight="bold"))
+        label.pack(pady=20)
+        
+        info = ctk.CTkLabel(self.config_window, text="O ambiente Cloud e chaves são lidos
+automaticamente pelo sistema.
+
+Para atualizar modelo ou modo,
+use o menu principal.")
+        info.pack(pady=10)
+        
+        btn = ctk.CTkButton(self.config_window, text="Sincronizar Estado", command=self.force_sync)
+        btn.pack(pady=20)
+
+    def force_sync(self):
+        self.send_action_async("get_status")
+        if hasattr(self, "config_window"):
+            self.config_window.destroy()
+
     def build_main_area(self):
         self.main_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         self.main_frame.grid(row=0, column=1, sticky="nsew")
