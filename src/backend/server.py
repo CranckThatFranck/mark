@@ -60,6 +60,7 @@ async def broadcast_state():
 async def handle_action(ws, data: dict):
     """Roteador principal de ações."""
     global agent_runner
+
     action = data.get("action")
     payload = data.get("payload", {})
     
@@ -87,7 +88,7 @@ async def handle_action(ws, data: dict):
         await ws.send(resp)
         
 
-elif action == "update_config":
+    elif action == "update_config":
         new_config = payload.get("config", {})
         if "model" in new_config:
             global_state.model = new_config["model"]
@@ -98,8 +99,7 @@ elif action == "update_config":
             
         from config_manager import save_config
         save_config({"mode": global_state.mode, "model": global_state.model, "region": global_state.region})
-        
-        global agent_runner
+
         agent_runner.update_model(global_state.model, global_state.region)
         
         await broadcast_state()
@@ -117,8 +117,7 @@ elif action == "update_config":
                 
             from config_manager import save_config
             save_config({"mode": global_state.mode, "model": global_state.model, "region": global_state.region})
-            
-            global agent_runner
+
             agent_runner.update_model(global_state.model, global_state.region)
             
             await broadcast_state()
@@ -185,6 +184,7 @@ elif action == "update_config":
         
         # Reinicia o Runner para garantir estado limpo (Recuperação Segura Pós-Interrupção)
         agent_runner = AgentRunner(send_stream_cb, set_status_cb)
+
         agent_runner.update_model(global_state.model, global_state.region)
         
         # Envia broadcast a todos e responde confirmando a interrupção
@@ -225,10 +225,12 @@ async def connection_handler(websocket): # removed 'path' as it's deprecated in 
 
 async def start_server():
     """Inicializa o servidor backend."""
+    global agent_runner
     prepare_context_structure()
 
-    global agent_runner
+
     agent_runner = AgentRunner(send_stream_cb, set_status_cb)
+
     agent_runner.update_model(global_state.model, global_state.region)
     
     logger.info(f"Iniciando Jarvis Backend em ws://{WS_HOST}:{WS_PORT}")
