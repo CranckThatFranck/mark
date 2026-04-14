@@ -16,10 +16,9 @@ class JarvisWSClient:
     """Cliente WebSocket com reconexao e sinalizacao mais precisa para a UI."""
 
     def __init__(self, host="127.0.0.1", port=8765, ui_callback=None, reconnect_delay=2.0):
-        resolved_host = os.environ.get("MARK_WS_HOST", host)
-        resolved_port = int(os.environ.get("MARK_WS_PORT", str(port)))
-
-        self.uri = f"ws://{resolved_host}:{resolved_port}"
+        self.host = os.environ.get("MARK_WS_HOST", host)
+        self.port = int(os.environ.get("MARK_WS_PORT", str(port)))
+        self.uri = self._build_uri()
         self.ui_callback = ui_callback
         self.reconnect_delay = reconnect_delay
         self.websocket = None
@@ -27,6 +26,9 @@ class JarvisWSClient:
         self._task = None
         self._closing = False
         self._had_successful_connection = False
+
+    def _build_uri(self):
+        return f"ws://{self.host}:{self.port}"
 
     def _emit_ui_event(self, payload):
         if self.ui_callback:
@@ -61,8 +63,16 @@ class JarvisWSClient:
         attempt = 0
         while not self._closing:
             try:
+                self.uri = self._build_uri()
                 if attempt == 0 and not self._had_successful_connection:
-                    self._emit_ui_event({"type": "connection_status", "status": "connecting"})
+                    self._emit_ui_event(
+                        {
+                            "type": "connection_status",
+                            "status": "connecting",
+                            "host": self.host,
+                            "port": self.port,
+                        }
+                    )
                 logger.info(f"Tentando conectar a {self.uri}...")
                 async with websockets.connect(
                     self.uri,
@@ -80,6 +90,8 @@ class JarvisWSClient:
                             "type": "connection_status",
                             "status": "connected",
                             "recovered": recovered,
+                            "host": self.host,
+                            "port": self.port,
                         }
                     )
 
@@ -104,6 +116,8 @@ class JarvisWSClient:
                         "status": "reconnecting",
                         "detail": detail,
                         "attempt": attempt,
+                        "host": self.host,
+                        "port": self.port,
                     }
                 )
                 logger.warning(f"Falha de conexao com o backend (reconnecting): {detail}")
@@ -127,6 +141,8 @@ class JarvisWSClient:
                         "status": status,
                         "detail": detail,
                         "attempt": attempt,
+                        "host": self.host,
+                        "port": self.port,
                     }
                 )
                 logger.warning(f"Falha de conexao com o backend ({status}): {detail}")
@@ -167,6 +183,8 @@ class JarvisWSClient:
                     "type": "connection_status",
                     "status": "reconnecting",
                     "detail": self._describe_failure(exc),
+                    "host": self.host,
+                    "port": self.port,
                 }
             )
             logger.warning(f"Erro ao enviar {action}: {exc}")

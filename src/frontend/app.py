@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime
+import os
 from pathlib import Path
 import queue
 import shutil
@@ -10,6 +11,7 @@ from tkinter import font as tkfont
 
 import customtkinter as ctk
 
+from ui_config import DEFAULT_BACKEND_HOST, load_frontend_config, normalize_backend_host, save_frontend_config
 from ws_client import JarvisWSClient
 
 
@@ -19,6 +21,7 @@ MERGEABLE_TECHNICAL_TYPES = {"code", "console"}
 AUTO_SCROLL_THRESHOLD = 0.04
 INPUT_MIN_LINES = 2
 INPUT_MAX_LINES = 8
+LOCAL_BACKEND_HOSTS = {"127.0.0.1", "localhost", "::1"}
 TECHNICAL_HEADERS = {
     "status": "Status",
     "system": "Sistema",
@@ -66,6 +69,9 @@ class JarvisApp(ctk.CTk):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
+        frontend_config = load_frontend_config()
+        self.backend_host = normalize_backend_host(os.environ.get("MARK_WS_HOST", frontend_config.get("backend_host")))
+        self.backend_port = int(os.environ.get("MARK_WS_PORT", "8765"))
         self.ws_client = None
         self.async_loop = None
         self.connection_status = "disconnected"
@@ -87,11 +93,13 @@ class JarvisApp(ctk.CTk):
         self._poll_after_id = None
         self._sash_after_id = None
         self._input_resize_after_id = None
+        self._last_body_pane_height = None
+        self._last_input_width = None
+        self._current_input_lines = INPUT_MIN_LINES
 
         self.build_sidebar()
         self.build_main_area()
 
-        self.bind("<Configure>", self.on_window_resize)
         self.bind("<Control-Shift-R>", lambda _event: self.open_rules_target())
         self.bind("<Control-Shift-T>", lambda _event: self.toggle_technical_panel())
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -100,7 +108,7 @@ class JarvisApp(ctk.CTk):
     def build_sidebar(self):
         self.sidebar_frame = ctk.CTkFrame(self, width=260, corner_radius=0, fg_color="#171a1c")
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
-        self.sidebar_frame.grid_rowconfigure(11, weight=1)
+        self.sidebar_frame.grid_rowconfigure(14, weight=1)
 
         title_font = ctk.CTkFont(size=22, weight="bold")
         section_font = ctk.CTkFont(size=12, weight="bold")
@@ -124,6 +132,48 @@ class JarvisApp(ctk.CTk):
         )
         self.connection_badge.grid(row=1, column=0, padx=20, pady=(0, 18), sticky="ew")
 
+        self.backend_host_label = ctk.CTkLabel(
+            self.sidebar_frame,
+            text="Host do backend",
+            font=section_font,
+            anchor="w",
+            text_color="#c7d0d9",
+        )
+        self.backend_host_label.grid(row=2, column=0, padx=20, pady=(0, 6), sticky="ew")
+
+        self.backend_host_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
+        self.backend_host_frame.grid(row=3, column=0, padx=20, pady=(0, 6), sticky="ew")
+        self.backend_host_frame.grid_columnconfigure(0, weight=1)
+
+        self.backend_host_var = ctk.StringVar(value=self.backend_host)
+        self.backend_host_entry = ctk.CTkEntry(
+            self.backend_host_frame,
+            textvariable=self.backend_host_var,
+            placeholder_text=DEFAULT_BACKEND_HOST,
+        )
+        self.backend_host_entry.grid(row=0, column=0, padx=(0, 8), sticky="ew")
+        self.backend_host_entry.bind("<Return>", self.on_apply_backend_host)
+
+        self.apply_host_btn = ctk.CTkButton(
+            self.backend_host_frame,
+            text="Aplicar",
+            width=78,
+            command=self.on_apply_backend_host,
+            fg_color="#2b313d",
+            hover_color="#384253",
+        )
+        self.apply_host_btn.grid(row=0, column=1)
+
+        self.backend_target_label = ctk.CTkLabel(
+            self.sidebar_frame,
+            text="Destino atual: Local | 127.0.0.1:8765",
+            anchor="w",
+            justify="left",
+            wraplength=220,
+            text_color="#9eaab3",
+        )
+        self.backend_target_label.grid(row=4, column=0, padx=20, pady=(0, 16), sticky="ew")
+
         self.mode_label = ctk.CTkLabel(
             self.sidebar_frame,
             text="Modo",
@@ -131,7 +181,7 @@ class JarvisApp(ctk.CTk):
             anchor="w",
             text_color="#c7d0d9",
         )
-        self.mode_label.grid(row=2, column=0, padx=20, pady=(0, 6), sticky="ew")
+        self.mode_label.grid(row=5, column=0, padx=20, pady=(0, 6), sticky="ew")
 
         self.mode_var = ctk.StringVar(value="agent")
         self.mode_menu = ctk.CTkOptionMenu(
@@ -143,7 +193,7 @@ class JarvisApp(ctk.CTk):
             button_color="#2c6b57",
             button_hover_color="#1f5344",
         )
-        self.mode_menu.grid(row=3, column=0, padx=20, pady=(0, 16), sticky="ew")
+        self.mode_menu.grid(row=6, column=0, padx=20, pady=(0, 16), sticky="ew")
 
         self.model_label = ctk.CTkLabel(
             self.sidebar_frame,
@@ -152,7 +202,7 @@ class JarvisApp(ctk.CTk):
             anchor="w",
             text_color="#c7d0d9",
         )
-        self.model_label.grid(row=4, column=0, padx=20, pady=(0, 6), sticky="ew")
+        self.model_label.grid(row=7, column=0, padx=20, pady=(0, 6), sticky="ew")
 
         self.model_var = ctk.StringVar(value="Carregando...")
         self.model_menu = ctk.CTkOptionMenu(
@@ -165,7 +215,7 @@ class JarvisApp(ctk.CTk):
             button_color="#4a6f45",
             button_hover_color="#39563a",
         )
-        self.model_menu.grid(row=5, column=0, padx=20, pady=(0, 10), sticky="ew")
+        self.model_menu.grid(row=8, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         self.add_model_btn = ctk.CTkButton(
             self.sidebar_frame,
@@ -174,7 +224,7 @@ class JarvisApp(ctk.CTk):
             fg_color="#6b4f1f",
             hover_color="#825e24",
         )
-        self.add_model_btn.grid(row=6, column=0, padx=20, pady=(0, 10), sticky="ew")
+        self.add_model_btn.grid(row=9, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         self.sync_btn = ctk.CTkButton(
             self.sidebar_frame,
@@ -183,7 +233,7 @@ class JarvisApp(ctk.CTk):
             fg_color="#25353f",
             hover_color="#2d4655",
         )
-        self.sync_btn.grid(row=7, column=0, padx=20, pady=(0, 10), sticky="ew")
+        self.sync_btn.grid(row=10, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         self.rules_btn = ctk.CTkButton(
             self.sidebar_frame,
@@ -192,7 +242,7 @@ class JarvisApp(ctk.CTk):
             fg_color="#3d3450",
             hover_color="#4d4266",
         )
-        self.rules_btn.grid(row=8, column=0, padx=20, pady=(0, 10), sticky="ew")
+        self.rules_btn.grid(row=11, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         self.rules_dir_btn = ctk.CTkButton(
             self.sidebar_frame,
@@ -201,7 +251,7 @@ class JarvisApp(ctk.CTk):
             fg_color="#2b313d",
             hover_color="#384253",
         )
-        self.rules_dir_btn.grid(row=9, column=0, padx=20, pady=(0, 10), sticky="ew")
+        self.rules_dir_btn.grid(row=12, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         self.toggle_technical_btn = ctk.CTkButton(
             self.sidebar_frame,
@@ -210,7 +260,7 @@ class JarvisApp(ctk.CTk):
             fg_color="#31414a",
             hover_color="#3b4f59",
         )
-        self.toggle_technical_btn.grid(row=10, column=0, padx=20, pady=(0, 10), sticky="ew")
+        self.toggle_technical_btn.grid(row=13, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         self.kill_btn = ctk.CTkButton(
             self.sidebar_frame,
@@ -219,7 +269,9 @@ class JarvisApp(ctk.CTk):
             fg_color="#8c2f39",
             hover_color="#75262f",
         )
-        self.kill_btn.grid(row=12, column=0, padx=20, pady=(0, 20), sticky="ew")
+        self.kill_btn.grid(row=15, column=0, padx=20, pady=(0, 20), sticky="ew")
+
+        self.update_backend_target_widgets()
 
     def build_main_area(self):
         self.main_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
@@ -385,17 +437,70 @@ class JarvisApp(ctk.CTk):
         )
         self.send_btn.grid(row=0, column=1)
 
+        self.body_pane.bind("<Configure>", self.on_body_pane_configure)
+        self.input_editor_frame.bind("<Configure>", self.on_input_editor_resize)
         self.schedule_input_resize()
-        self._sash_after_id = self.after(150, self.position_initial_sash)
+        self.schedule_sash_positioning(force=True)
 
-    def on_window_resize(self, _event=None):
-        if not self.technical_panel_collapsed and self._technical_restore_requested:
-            if self._sash_after_id:
-                self.after_cancel(self._sash_after_id)
-            self._sash_after_id = self.after(100, self.position_initial_sash)
+    def backend_target_mode(self):
+        return "Local" if self.is_local_backend_host() else "Remoto"
+
+    def backend_target_display(self):
+        return f"{self.backend_target_mode()} | {self.backend_host}:{self.backend_port}"
+
+    def is_local_backend_host(self, host=None):
+        candidate = normalize_backend_host(host or self.backend_host).lower()
+        return candidate in LOCAL_BACKEND_HOSTS
+
+    def update_backend_target_widgets(self):
+        self.backend_target_label.configure(text=f"Destino atual: {self.backend_target_display()}")
+
+    def persist_backend_host(self):
+        save_frontend_config({"backend_host": self.backend_host})
+
+    def on_body_pane_configure(self, event=None):
+        if self._closing_ui or self.technical_panel_collapsed:
+            return
+        if event is not None and getattr(event, "widget", None) is not self.body_pane:
+            return
+        current_height = self.body_pane.winfo_height()
+        if current_height <= 0:
+            return
+        if (
+            self._last_body_pane_height == current_height
+            and self._sash_initialized
+            and not self._technical_restore_requested
+        ):
+            return
+        self._last_body_pane_height = current_height
+        if not self._sash_initialized or self._technical_restore_requested:
+            self.schedule_sash_positioning(force=self._technical_restore_requested)
+
+    def on_input_editor_resize(self, event=None):
+        if self._closing_ui:
+            return
+        if event is not None and getattr(event, "widget", None) is not self.input_editor_frame:
+            return
+        current_width = self.input_editor_frame.winfo_width()
+        if current_width <= 0 or current_width == self._last_input_width:
+            return
+        self._last_input_width = current_width
         self.schedule_input_resize()
+
+    def schedule_sash_positioning(self, force=False):
+        if self._closing_ui or self.technical_panel_collapsed:
+            return
+        if self._sash_initialized and not (self._technical_restore_requested or force):
+            return
+        if self._sash_after_id:
+            try:
+                self.after_cancel(self._sash_after_id)
+            except Exception:
+                pass
+        self._sash_after_id = self.after(80, self.position_initial_sash)
 
     def position_initial_sash(self):
+        self._sash_after_id = None
         if self.technical_panel_collapsed:
             return
         if self._sash_initialized and not self._technical_restore_requested:
@@ -405,7 +510,9 @@ class JarvisApp(ctk.CTk):
             if total_height <= 0:
                 return
             conversation_height = max(360, total_height - 240)
-            self.body_pane.sash_place(0, 0, conversation_height)
+            current_sash_y = self.body_pane.sash_coord(0)[1]
+            if abs(current_sash_y - conversation_height) > 1:
+                self.body_pane.sash_place(0, 0, conversation_height)
             self._sash_initialized = True
             self._technical_restore_requested = False
         except Exception:
@@ -416,7 +523,11 @@ class JarvisApp(ctk.CTk):
         asyncio.set_event_loop(self.async_loop)
 
         try:
-            self.ws_client = JarvisWSClient(ui_callback=self.handle_ws_message)
+            self.ws_client = JarvisWSClient(
+                host=self.backend_host,
+                port=self.backend_port,
+                ui_callback=self.handle_ws_message,
+            )
             self.ws_client.start(self.async_loop)
             self.async_loop.run_forever()
         finally:
@@ -429,6 +540,19 @@ class JarvisApp(ctk.CTk):
 
     def start_connection(self):
         threading.Thread(target=self.run_async_loop, daemon=True).start()
+
+    async def restart_ws_client(self):
+        previous_client = self.ws_client
+        if previous_client:
+            await previous_client.close()
+        if self._closing_ui or not self.async_loop or self.async_loop.is_closed():
+            return
+        self.ws_client = JarvisWSClient(
+            host=self.backend_host,
+            port=self.backend_port,
+            ui_callback=self.handle_ws_message,
+        )
+        self.ws_client.start(self.async_loop)
 
     def on_close(self):
         self._closing_ui = True
@@ -542,8 +666,12 @@ class JarvisApp(ctk.CTk):
             content = self.get_input_text()
             display_lines = content.count("\n") + 1 if content else INPUT_MIN_LINES
         target_lines = max(INPUT_MIN_LINES, min(INPUT_MAX_LINES, display_lines or INPUT_MIN_LINES))
-        self.input_text.configure(height=target_lines)
-        self.input_editor_frame.configure(height=max(44, target_lines * 22))
+        if target_lines != self._current_input_lines:
+            self.input_text.configure(height=target_lines)
+            self._current_input_lines = target_lines
+        desired_height = max(48, target_lines * 22)
+        if abs(self.input_editor_frame.winfo_height() - desired_height) > 1:
+            self.input_editor_frame.configure(height=desired_height)
         self.update_input_placeholder()
 
     def on_input_modified(self, _event=None):
@@ -565,6 +693,27 @@ class JarvisApp(ctk.CTk):
         self.on_send()
         return "break"
 
+    def on_apply_backend_host(self, _event=None):
+        normalized_host = normalize_backend_host(self.backend_host_var.get())
+        self.backend_host_var.set(normalized_host)
+        if normalized_host == self.backend_host:
+            self.update_backend_target_widgets()
+            return "break"
+
+        previous_target = self.backend_target_display()
+        self.backend_host = normalized_host
+        self.persist_backend_host()
+        self.update_backend_target_widgets()
+        self.append_technical_entry(
+            "system",
+            f"Destino do backend alterado de {previous_target} para {self.backend_target_display()}. Reconectando.",
+            merge_if_possible=False,
+        )
+
+        if self.async_loop and not self.async_loop.is_closed():
+            asyncio.run_coroutine_threadsafe(self.restart_ws_client(), self.async_loop)
+        return "break"
+
     def apply_connection_status(self, payload):
         if self._closing_ui:
             return
@@ -576,6 +725,7 @@ class JarvisApp(ctk.CTk):
         previous_status = self.connection_status
         self.connection_status = status
         self.connection_detail = detail
+        self.update_backend_target_widgets()
 
         style = CONNECTION_STYLES.get(status, CONNECTION_STYLES["disconnected"])
         self.connection_badge.configure(
@@ -593,18 +743,22 @@ class JarvisApp(ctk.CTk):
             return
 
         if status == "connected":
-            message = "Conexao com o backend restabelecida." if recovered else "Conexao estabelecida com o backend."
+            message = (
+                f"Conexao com o backend restabelecida em {self.backend_target_display()}."
+                if recovered
+                else f"Conexao estabelecida com o backend em {self.backend_target_display()}."
+            )
             self.append_technical_entry("system", message)
             self._last_connection_notice = ("connected", "", None)
             return
 
         if status == "reconnecting":
-            message = "Falha temporaria de comunicacao. Tentando reconectar automaticamente."
+            message = f"Falha temporaria de comunicacao em {self.backend_target_display()}. Tentando reconectar automaticamente."
             if detail:
                 message = f"{message} Detalhe: {detail}."
             self.append_technical_entry("system", message)
         elif status == "unavailable":
-            message = "Backend indisponivel no momento. O frontend continuara tentando conectar."
+            message = f"Backend indisponivel em {self.backend_target_display()}. O frontend continuara tentando conectar."
             if detail:
                 message = f"{message} Detalhe: {detail}."
             self.append_technical_entry("system", message)
@@ -642,13 +796,15 @@ class JarvisApp(ctk.CTk):
             self.send_btn.configure(state="disabled")
             self.set_input_enabled(False)
             if active_task:
-                self.session_status.configure(text=f"Executando: {self.truncate_text(active_task, 140)}")
+                self.session_status.configure(
+                    text=f"{self.backend_target_display()} | Executando: {self.truncate_text(active_task, 140)}"
+                )
             else:
-                self.session_status.configure(text="Executando tarefa em andamento")
+                self.session_status.configure(text=f"{self.backend_target_display()} | Executando tarefa em andamento")
         else:
             self.send_btn.configure(state="normal" if self.connection_status == "connected" else "disabled")
             self.set_input_enabled(True)
-            base_text = f"Modelo ativo: {current_model or 'aguardando sincronizacao'}"
+            base_text = f"{self.backend_target_display()} | Modelo ativo: {current_model or 'aguardando sincronizacao'}"
             if self.connection_status in {"reconnecting", "unavailable"} and self.connection_detail:
                 base_text = f"{base_text} | Transporte: {self.connection_detail}"
             self.session_status.configure(text=base_text)
@@ -1042,12 +1198,12 @@ class JarvisApp(ctk.CTk):
         if self.connection_status == "reconnecting":
             self.append_technical_entry(
                 "system",
-                "Falha temporaria de comunicacao em andamento. Aguarde a reconexao automatica para enviar novos comandos.",
+                f"Falha temporaria de comunicacao em {self.backend_target_display()}. Aguarde a reconexao automatica para enviar novos comandos.",
             )
         else:
             self.append_technical_entry(
                 "system",
-                "Backend indisponivel. Aguarde a reconexao para enviar comandos.",
+                f"Backend indisponivel em {self.backend_target_display()}. Aguarde a reconexao para enviar comandos.",
             )
         return False
 
@@ -1108,7 +1264,7 @@ class JarvisApp(ctk.CTk):
             self._technical_restore_requested = True
             self.toggle_technical_btn.configure(text="Ocultar painel tecnico")
             self.technical_collapse_btn.configure(text="Recolher")
-            self.after(150, self.position_initial_sash)
+            self.schedule_sash_positioning(force=True)
             return
 
         try:
