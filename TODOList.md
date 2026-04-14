@@ -1,10 +1,12 @@
 ## A fazer
-- Reempacotar os artefatos `.rpm` e `.deb`, validar os arquivos gerados e conferir a cópia instalada em `/opt/jarvis`.
+- Nenhum item pendente fora da validacao final de empacotamento.
 
 ## Fazendo
-- Documentar em `DevJarvis/` o contrato JSON/WebSocket real do Mark Alfa para clientes remotos e atualizar o README com o novo fluxo de host remoto.
+- Reempacotar os artefatos `.rpm` e `.deb`, validar os arquivos gerados e conferir a cópia instalada em `/opt/jarvis`.
 
 ## Feito
+- 2026-04-14 Documentacao tecnica de integracao adicionada em `DevJarvis/mark-alfa-websocket.md`, cobrindo handshake `sync_state`, `stream`, `action_response`, historico de sessao, `execute_task`, `interrupt`, `get_status`, `get_models`, `get_config`, `update_config`, `change_model`, `change_mode` e operacao recomendada para clientes remotos.
+- 2026-04-14 README atualizado para refletir o host local padrao `127.0.0.1`, configuracao de host remoto persistente no frontend, localizacao da documentacao em `DevJarvis/`, arquivo oficial de regras do produto instalado e a separacao em relacao a `~/jarvis_rules.txt` do ambiente do agente desenvolvedor.
 - 2026-04-14 Convulsão visual do frontend corrigida nesta rodada: o resize global da janela foi removido do caminho crítico, o `PanedWindow` passou a reposicionar o sash apenas quando realmente necessário e o input multilinha só recalcula altura quando largura ou número efetivo de linhas mudam, eliminando jitter e reposicionamento recursivo do painel técnico e da barra inferior.
 - 2026-04-14 Frontend ganhou configuração persistente de host remoto com reconexão limpa do cliente WebSocket: o operador pode informar `127.0.0.1`, `localhost`, IPv4 ou hostname remoto, o destino reaparece ao reabrir a aplicação, a UI mostra claramente `Local` ou `Remoto` com host atual, e a recuperação de sessão volta a funcionar ao retornar para o backend local.
 - 2026-04-14 UX final do frontend corrigida nesta rodada: conversa principal e painel técnico agora seguem automaticamente a última saída quando o usuário está no fim, preservam a leitura quando ele sobe manualmente, e o campo de entrada virou multilinha expansível com `Shift+Enter` para quebra de linha e `Enter` para envio.

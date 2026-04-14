@@ -17,9 +17,11 @@ Esta arvore finaliza o produto instalavel em `/opt/jarvis`, sem confundir isso c
   - `gemini/gemini-2.5-flash`
 - modelos extras: qualquer modelo Gemini informado manualmente no frontend com prefixo `gemini/`
 - credencial consumida pela aplicacao: somente `GOOGLE_API_KEY`
+- destino padrao do frontend instalado: `ws://127.0.0.1:8765`
+- host remoto: o frontend pode apontar para outro backend Mark Alfa por IPv4 ou hostname, mantendo o mesmo contrato WebSocket/JSON
 - transporte: quando o backend continua vivo e ocorre erro de WebSocket/handshake/transporte, o frontend trata isso como falha temporaria de comunicacao e tenta reconectar automaticamente
 - sessao: no handshake inicial ou de reconexao o frontend recebe estado, catalogo de modelos e historico persistido da sessao ativa
-- UX: conversa principal dominante, painel tecnico secundario colapsavel e redimensionavel, autoscroll operacional, texto selecionavel por mouse, timestamps visiveis, botoes de copiar e input multilinha com `Shift+Enter`
+- UX: conversa principal dominante, painel tecnico secundario colapsavel e redimensionavel, autoscroll operacional, texto selecionavel por mouse, timestamps visiveis, botoes de copiar, input multilinha com `Shift+Enter` e selecao persistente de host local/remoto
 
 ## Arquitetura preservada
 
@@ -35,6 +37,9 @@ O backend e a fonte de verdade para:
 - catalogo de modelos nativos e customizados
 - historico da sessao ativa
 - caminhos operacionais relevantes, incluindo o arquivo de regras iniciais do produto
+
+Documentacao tecnica extra para integracoes remotas:
+- [DevJarvis/mark-alfa-websocket.md](/home/francisco/Documentos/repos/mark/DevJarvis/mark-alfa-websocket.md)
 
 ## Requisitos
 
@@ -130,6 +135,7 @@ No frontend:
 - botao `Abrir regras`
 - botao `Abrir pasta das regras`
 - atalho `Ctrl+Shift+R` para abrir rapidamente esse arquivo
+- o caminho oficial tambem chega para qualquer cliente remoto em `sync_state.state.paths.rules_file`
 
 Importante:
 - esse arquivo do produto instalado e distinto do `~/jarvis_rules.txt` citado no ambiente atual do agente desenvolvedor
@@ -159,6 +165,27 @@ Comportamento final:
 - a UI continua tentando reconectar automaticamente
 - quando a reconexao entra, o historico da sessao ativa reaparece pelo handshake
 
+## Frontend para host local ou remoto
+
+O frontend instalado abre apontando para:
+
+- `127.0.0.1` na porta `8765`
+
+Agora existe um campo dedicado `Host do backend` na lateral:
+
+- aceita `127.0.0.1`, `localhost`, IPv4 ou hostname remoto
+- o botao `Aplicar` troca o destino e reinicia apenas o cliente WebSocket do frontend
+- a interface mostra claramente `Local` ou `Remoto` e o host ativo
+- ao voltar para um backend que ja tinha sessao ativa, o historico reaparece pelo `sync_state`
+
+Persistencia do host do frontend:
+
+- arquivo padrao: `~/.config/jarvis-mark/frontend.json`
+- chave atual: `backend_host`
+- override para testes ou desenvolvimento: `MARK_FRONTEND_CONFIG_FILE=/caminho/frontend.json`
+
+O frontend nao persiste esse host no backend. Essa escolha fica local ao operador e nao altera a configuracao Gemini-only do daemon remoto.
+
 ## Frontend final
 
 O frontend agora entrega:
@@ -166,11 +193,14 @@ O frontend agora entrega:
 - painel tecnico como trilha secundaria
 - painel tecnico colapsavel
 - painel tecnico redimensionavel verticalmente pelo usuario
+- layout estavel, sem jitter de resize nem reposicionamento continuo do painel tecnico e da barra inferior
 - autoscroll na conversa principal e no painel tecnico quando o usuario esta no fim
 - preservacao da leitura quando o usuario sobe manualmente para revisar mensagens antigas
 - campo de entrada multilinha com crescimento vertical conforme novas linhas
 - `Shift+Enter` para quebra de linha
 - `Enter` simples para envio
+- campo persistente para host local ou remoto do backend
+- indicacao visivel do destino atual com modo `Local` ou `Remoto`
 - texto copiavel por selecao com mouse nas mensagens e nos eventos tecnicos
 - timestamps visiveis nas mensagens principais e nos eventos tecnicos
 - botoes `Copiar` nas mensagens, saidas tecnicas, codigo e console
@@ -225,6 +255,15 @@ Com o pacote instalado, o frontend abre por:
 - menu de aplicativos: `Mark Alfa`
 - ou manualmente: `/opt/jarvis/venv/bin/python /opt/jarvis/frontend/app.py`
 
+Para apontar para outro backend remoto:
+
+1. abra o frontend
+2. preencha `Host do backend`
+3. clique em `Aplicar`
+4. confirme na lateral se o destino apareceu como `Remoto | host:8765`
+
+Se quiser voltar ao backend local desta maquina, use `127.0.0.1` ou `localhost`.
+
 ## Uso local sem instalar
 
 Backend:
@@ -250,6 +289,7 @@ Os principais testes locais usados nesta rodada foram:
 
 O smoke do frontend cobre:
 - conexao ao backend
+- estabilidade do layout do chat, painel tecnico e barra inferior
 - troca de modelo
 - envio de multiplas mensagens
 - autoscroll da conversa principal
@@ -257,6 +297,9 @@ O smoke do frontend cobre:
 - preservacao de leitura ao sair manualmente do fim do chat
 - input multilinha expansivel
 - `Shift+Enter` para nova linha e `Enter` para envio
+- troca para host remoto de teste
+- persistencia do host configurado ao reabrir o frontend
+- retorno ao backend local com reconexao e reidratacao da sessao
 - falha temporaria de transporte com reconexao
 - reidratacao do historico apos reconexao
 - painel tecnico colapsavel
@@ -269,12 +312,15 @@ O smoke do frontend cobre:
   - confira `sudo systemctl status jarvis-backend`
   - confira `sudo journalctl -u jarvis-backend -n 100`
 - frontend abre sem conectar:
-  - confirme que o backend esta em `ws://127.0.0.1:8765`
+  - confirme se o `Host do backend` esta apontando para o daemon esperado
+  - para o modo local, use `127.0.0.1` ou `localhost`
   - aguarde a reconexao automatica ou clique em `Sincronizar`
 - frontend mostra falha temporaria de comunicacao:
   - o backend pode continuar vivo; a UI tentara reconectar sozinha
   - nas tarefas longas atuais o loop de rede do backend continua responsivo durante o streaming do agente, reduzindo timeouts de handshake na reconexao
   - confira `journalctl` para confirmar que o daemon nao caiu
+- integracao remota:
+  - use [DevJarvis/mark-alfa-websocket.md](/home/francisco/Documentos/repos/mark/DevJarvis/mark-alfa-websocket.md) como referencia do contrato JSON/WebSocket atual
 - modelo customizado nao aparece:
   - use prefixo `gemini/`
   - verifique `estado/config.json`
