@@ -1,10 +1,14 @@
 ## A fazer
-- Validar a rodada final no produto instalado: abrir frontend, trocar modelo, enviar mensagens em sequencia, verificar reconexao, painel tecnico, copia de texto, timestamps e artefatos RPM/DEB.
+- Nenhum item pendente desta rodada.
 
 ## Fazendo
-- Revisar a politica de persistencia do backend instalado e integrar um arquivo padrao de regras iniciais do produto em caminho instalavel e documentado.
+- Nenhum item em andamento.
 
 ## Feito
+- 2026-04-14 Politica de persistencia revisada sem quebrar a instalacao atual: o produto instalado agora prefere `/var/lib/jarvis-mark`, mas preserva automaticamente a arvore legada encontrada nesta maquina em `/root/Documents/JarvisMark`; arquivo padrao de regras integrado em `/opt/jarvis/backend/product_config/initial_rules.txt`, carregado pelo backend e exposto no frontend por botoes/atalho.
+- 2026-04-14 README final reescrito para refletir o comportamento real do sistema, incluindo transporte WebSocket resiliente, politica de persistencia, arquivo de regras do produto instalado, distincao em relacao a `~/jarvis_rules.txt` e fluxo final de empacotamento.
+- 2026-04-14 Pacotes finais atualizados gerados e validados: `jarvis-backend-1.0.0-1.fc43.noarch.rpm`, `jarvis-frontend-1.0.0-1.fc43.noarch.rpm`, `jarvis-backend_1.0.0_all.deb` e `jarvis-frontend_1.0.0_all.deb`; RPM reinstalado nesta maquina, `jarvis-backend.service` validado via systemd, handshakes abortados sem novo erro fatal no journal e smoke do frontend instalado concluido com sucesso.
+- 2026-04-14 Validacoes reais concluídas nesta rodada: backend smoke em porta local e no servico instalado, troca de modelo, mensagens em sequencia, reconexao apos transporte abortado, reidratacao de historico, painel tecnico colapsavel/redimensionavel, selecao/copia de texto e atalhos de regras do produto.
 - 2026-04-14 Investigada a perda de comunicacao frontend/backend: o daemon seguia vivo, mas o frontend colapsava qualquer erro de transporte no estado "Backend desconectado" e o servidor ainda deixava handshakes abortados/fechamentos abruptos poluirem o fluxo principal como erro fatal.
 - 2026-04-14 Backend e frontend endurecidos contra falhas temporarias de transporte/handshake: reconexao automatica agora distingue backend indisponivel de falha de comunicacao com daemon vivo, `sync_state` reidrata a sessao apos reconectar, historico ganhou timestamps persistidos e o backend passou a tratar `ConnectionClosedError`, stream parcial e handshakes abortados sem derrubar o servico.
 - 2026-04-14 UX do frontend ampliada com conversa principal dominante, painel tecnico secundario colapsavel e redimensionavel, texto selecionavel por mouse, timestamps visiveis e botoes de copiar para mensagens e eventos tecnicos, alem de atalhos para abrir o arquivo ou a pasta das regras do produto.

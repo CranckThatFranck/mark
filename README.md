@@ -4,7 +4,7 @@ Mark Alfa e um agente local com duas partes:
 - backend Python em daemon `systemd`, encapsulando o Open Interpreter;
 - frontend desktop em Python + CustomTkinter, falando com o backend via WebSocket/JSON.
 
-O projeto desta arvore e a finalizacao do produto instalavel em `/opt/jarvis`, sem confundir isso com o ambiente atual do agente desenvolvedor nesta maquina.
+Esta arvore finaliza o produto instalavel em `/opt/jarvis`, sem confundir isso com o ambiente atual do agente desenvolvedor nesta maquina.
 
 ## Visao geral final
 
@@ -17,13 +17,15 @@ O projeto desta arvore e a finalizacao do produto instalavel em `/opt/jarvis`, s
   - `gemini/gemini-2.5-flash`
 - modelos extras: qualquer modelo Gemini informado manualmente no frontend com prefixo `gemini/`
 - credencial consumida pela aplicacao: somente `GOOGLE_API_KEY`
-- reconexao: ao reabrir o frontend com backend vivo, a sessao ativa reaparece no handshake
-- persistencia de modelos: modelos Gemini adicionados manualmente voltam na lista ao reabrir
+- transporte: quando o backend continua vivo e ocorre erro de WebSocket/handshake/transporte, o frontend trata isso como falha temporaria de comunicacao e tenta reconectar automaticamente
+- sessao: no handshake inicial ou de reconexao o frontend recebe estado, catalogo de modelos e historico persistido da sessao ativa
+- UX: conversa principal dominante, painel tecnico secundario colapsavel e redimensionavel, texto selecionavel por mouse, timestamps visiveis e botoes de copiar
 
 ## Arquitetura preservada
 
 - backend: [src/backend/server.py](/home/francisco/Documentos/repos/mark/src/backend/server.py)
 - frontend: [src/frontend/app.py](/home/francisco/Documentos/repos/mark/src/frontend/app.py)
+- cliente WebSocket do frontend: [src/frontend/ws_client.py](/home/francisco/Documentos/repos/mark/src/frontend/ws_client.py)
 - protocolo: [AgentContext/02-contrato-json-mark-alfa.md](/home/francisco/Documentos/repos/mark/AgentContext/02-contrato-json-mark-alfa.md)
 - unit file: [packaging/systemd/jarvis-backend.service](/home/francisco/Documentos/repos/mark/packaging/systemd/jarvis-backend.service)
 
@@ -32,6 +34,7 @@ O backend e a fonte de verdade para:
 - modo atual
 - catalogo de modelos nativos e customizados
 - historico da sessao ativa
+- caminhos operacionais relevantes, incluindo o arquivo de regras iniciais do produto
 
 ## Requisitos
 
@@ -73,37 +76,111 @@ sudo systemctl daemon-reload
 sudo systemctl restart jarvis-backend.service
 ```
 
-## Contexto operacional
+## Contexto operacional e persistencia
 
-Codigo instalavel:
+### Codigo instalavel
+
 - `/opt/jarvis/backend`
 - `/opt/jarvis/frontend`
 - `/opt/jarvis/venv`
 
-Contexto dinamico do runtime:
+### Politica atual de persistencia
+
+Para o produto instalado, a politica preferencial agora e:
+- estado e trilha operacional em `/var/lib/jarvis-mark`
+- diretoria criada tambem pelo `systemd` via `StateDirectory=jarvis-mark`
+
+Para nao quebrar a instalacao atual desta maquina, o backend preserva automaticamente um contexto legado ja existente sob:
+- `/root/Documents/JarvisMark`
+- `/root/Documentos/JarvisMark`
+- `/root/JarvisMark`
+
+Se nenhuma dessas arvores legadas existir, o backend instalado passa a usar `/var/lib/jarvis-mark`.
+
+Em execucao local de desenvolvimento, a politica continua:
 - primeiro `~/Documents/JarvisMark`
 - senao `~/Documentos/JarvisMark`
 - fallback: `~/JarvisMark`
 - override opcional: `MARK_BASE_DIR=/caminho/desejado`
 
-Arquivos principais do contexto:
+### Arquivos principais do contexto dinamico
+
 - `estado/config.json`
 - `estado/session.json`
 - `logs/backend.log`
 - `logs/change.log`
 - `memoria/MemoriaDoJarvis.log`
 
+## Arquivo padrao de regras iniciais
+
+O arquivo padrao de regras globais do produto instalado e:
+
+- `/opt/jarvis/backend/product_config/initial_rules.txt`
+
+No codigo-fonte desta arvore, o mesmo arquivo esta em:
+
+- [src/backend/product_config/initial_rules.txt](/home/francisco/Documentos/repos/mark/src/backend/product_config/initial_rules.txt)
+
+Comportamento real do backend:
+- no boot, o backend garante que esse arquivo exista
+- o conteudo e carregado como referencia global inicial do agente
+- hoje esse conteudo e injetado em `interpreter.custom_instructions`, preservando o `system_message` base do Open Interpreter
+
+No frontend:
+- botao `Abrir regras`
+- botao `Abrir pasta das regras`
+- atalho `Ctrl+Shift+R` para abrir rapidamente esse arquivo
+
+Importante:
+- esse arquivo do produto instalado e distinto do `~/jarvis_rules.txt` citado no ambiente atual do agente desenvolvedor
+- `~/jarvis_rules.txt` nao faz parte do contrato do produto distribuivel
+
+## Comportamento de conexao e reconexao
+
+### Quando tudo esta normal
+
+Ao conectar, o frontend recebe:
+- `sync_state`
+- catalogo de modelos
+- historico completo da sessao ativa
+
+### Quando o backend continua vivo, mas o transporte falha
+
+Exemplos:
+- `ConnectionClosedError`
+- `no close frame received or sent`
+- handshake interrompido
+- cliente fechado ou abortado no meio da conexao
+
+Comportamento final:
+- o backend nao trata isso como queda fatal do daemon
+- handshakes abortados deixam de poluir o fluxo principal como erro fatal no log do servico
+- o frontend mostra falha temporaria de comunicacao em vez de queda definitiva do backend
+- a UI continua tentando reconectar automaticamente
+- quando a reconexao entra, o historico da sessao ativa reaparece pelo handshake
+
+## Frontend final
+
+O frontend agora entrega:
+- conversa principal visualmente dominante
+- painel tecnico como trilha secundaria
+- painel tecnico colapsavel
+- painel tecnico redimensionavel verticalmente pelo usuario
+- texto copiavel por selecao com mouse nas mensagens e nos eventos tecnicos
+- timestamps visiveis nas mensagens principais e nos eventos tecnicos
+- botoes `Copiar` nas mensagens, saidas tecnicas, codigo e console
+
 ## Instalacao por pacote
 
 ### RPM
 
-Gere os pacotes:
+Gerar:
 
 ```bash
 ./build_rpm.sh
 ```
 
-Instale:
+Instalar ou atualizar:
 
 ```bash
 sudo rpm -Uvh ./jarvis-backend-1.0.0-*.rpm ./jarvis-frontend-1.0.0-*.rpm
@@ -111,16 +188,16 @@ sudo rpm -Uvh ./jarvis-backend-1.0.0-*.rpm ./jarvis-frontend-1.0.0-*.rpm
 
 ### DEB
 
-Os arquivos de controle e scripts de pos-instalacao estao em:
-- [packaging/deb/backend/control](/home/francisco/Documentos/repos/mark/packaging/deb/backend/control)
-- [packaging/deb/backend/postinst](/home/francisco/Documentos/repos/mark/packaging/deb/backend/postinst)
-- [packaging/deb/frontend/control](/home/francisco/Documentos/repos/mark/packaging/deb/frontend/control)
-- [packaging/deb/frontend/postinst](/home/francisco/Documentos/repos/mark/packaging/deb/frontend/postinst)
-
-Instalacao esperada:
+Gerar:
 
 ```bash
-sudo dpkg -i ./jarvis-backend_*.deb ./jarvis-frontend_*.deb
+./build_deb.sh
+```
+
+Instalar:
+
+```bash
+sudo dpkg -i ./jarvis-backend_1.0.0_all.deb ./jarvis-frontend_1.0.0_all.deb
 ```
 
 ## Backend via systemd
@@ -159,24 +236,21 @@ Frontend:
 
 Esses scripts preferem `/opt/jarvis/venv/bin/python` quando ele ja existe.
 
-## Comportamento final da sessao
+## Testes e validacao local desta rodada
 
-### Recuperacao de sessao
+Os principais testes locais usados nesta rodada foram:
+- [tests/test_backend.py](/home/francisco/Documentos/repos/mark/tests/test_backend.py)
+- [tests/smoke_backend.py](/home/francisco/Documentos/repos/mark/tests/smoke_backend.py)
+- [tests/smoke_frontend.py](/home/francisco/Documentos/repos/mark/tests/smoke_frontend.py)
 
-O backend salva a sessao ativa em `estado/session.json`.
-Ao conectar ou reconectar, o frontend recebe:
-- estado atual
-- catalogo de modelos
-- historico da sessao ativa
-
-Se o frontend for fechado e aberto de novo enquanto o backend continua vivo, a conversa reaparece sem perder continuidade.
-
-### Persistencia de modelos customizados
-
-Modelos Gemini adicionados manualmente no frontend:
-- sao validados pelo backend como `gemini/...`
-- entram em `custom_models` no `config.json`
-- reaparecem na lista do frontend no proximo handshake
+O smoke do frontend cobre:
+- conexao ao backend
+- troca de modelo
+- envio de multiplas mensagens
+- falha temporaria de transporte com reconexao
+- reidratacao do historico apos reconexao
+- painel tecnico colapsavel
+- timestamps e copia para area de transferencia
 
 ## Troubleshooting
 
@@ -186,7 +260,10 @@ Modelos Gemini adicionados manualmente no frontend:
   - confira `sudo journalctl -u jarvis-backend -n 100`
 - frontend abre sem conectar:
   - confirme que o backend esta em `ws://127.0.0.1:8765`
-  - clique em `Sincronizar` ou reinicie o backend
+  - aguarde a reconexao automatica ou clique em `Sincronizar`
+- frontend mostra falha temporaria de comunicacao:
+  - o backend pode continuar vivo; a UI tentara reconectar sozinha
+  - confira `journalctl` para confirmar que o daemon nao caiu
 - modelo customizado nao aparece:
   - use prefixo `gemini/`
   - verifique `estado/config.json`
@@ -194,7 +271,7 @@ Modelos Gemini adicionados manualmente no frontend:
   - confirme que o backend nao foi reiniciado entre o fechamento e a reabertura do frontend
   - verifique `estado/session.json`
 
-## Ambiente atual do desenvolvedor x produto instalavel
+## Produto instalavel x ambiente atual do desenvolvedor
 
 Este repositorio trata do produto Mark Alfa instalavel.
 O ambiente atual do agente desenvolvedor nesta maquina continua separado e pode citar `~/jarvis_rules.txt` ou `JarvisMinion`, mas isso e apenas referencia do ambiente do agente, nao requisito do produto distribuivel.
