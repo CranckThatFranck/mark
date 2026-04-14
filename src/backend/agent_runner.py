@@ -29,22 +29,28 @@ class AgentRunner:
 
     def update_model(self, new_model: str, region: str = None):
         """
-        Atualiza o modelo de LLM usado pelo interpreter e as variaveis
-        necessárias para chamadas Vertex AI baseando-se no que está já no OS ou env.
+        Atualiza o modelo de LLM e as variáveis de ambiente necessárias para o LiteLLM.
         """
         self.interpreter.llm.model = new_model
         
-        # O litellm/open-interpreter precisa de dicas no environment local
-        # se for usar o vertex_ai. A responsabilidade de prover os dados nas vars é do operador,
-        # nós só amarramos os pontos pro provider.
-        if "vertex_ai" in new_model:
-            # Puxa o location do argumento que veio do frontend (override) ou env default e injeta VERTEX_LOCATION e VERTEXAI_LOCATION pro litellm ler
-            final_region = region if region else os.environ.get("VERTEXAI_LOCATION", "us-east5")
-            os.environ["VERTEX_LOCATION"] = final_region
-            os.environ["VERTEXAI_LOCATION"] = final_region
-            # Não injetamos chaves aqui. O Operator que precisa ter GOOGLE_APPLICATION_CREDENTIALS ou VERTEXAI_PROJECT no ambiente/systemd
+        # Limpa variáveis de ambiente do Vertex para garantir que não haja conflito
+        # ao usar modelos que dependem de GOOGLE_API_KEY
+        if "VERTEX_LOCATION" in os.environ:
+            del os.environ["VERTEX_LOCATION"]
+        if "VERTEXAI_LOCATION" in os.environ:
+            del os.environ["VERTEXAI_LOCATION"]
 
-        logger.info(f"Modelo atualizado para {new_model}, Região para VertexAI: {os.environ.get('VERTEXAI_LOCATION', 'us-east5')}")
+        if "vertex_ai" in new_model:
+            # Puxa a região do argumento ou do ambiente, com fallback
+            final_region = region if region else os.environ.get("VERTEXAI_LOCATION_DEFAULT", "us-east5")
+            os.environ["VERTEXAI_LOCATION"] = final_region
+            # O operador é responsável por ter GOOGLE_APPLICATION_CREDENTIALS e VERTEXAI_PROJECT no ambiente
+            logger.info(f"Modelo Vertex AI selecionado. Usando região: {final_region}")
+        else:
+            logger.info(f"Modelo não-Vertex AI selecionado. Usando GOOGLE_API_KEY (se disponível).")
+
+        logger.info(f"Modelo do Open Interpreter atualizado para: {new_model}")
+
 
 
     async def run_task(self, prompt: str, mode: str):

@@ -38,7 +38,7 @@ MEMORY_LOG = BASE_DIR / "MemoriaDoJarvis.log"
 CHANGE_LOG = BASE_DIR / "change.log"
 
 # Modelos suportados e Padroes
-DEFAULT_MODEL = "vertex_ai/gemini-3.1-pro-preview-customtools"
+DEFAULT_MODEL = "gemini/gemini-3.1-pro-preview"
 DEFAULT_REGION = "us-east5"
 
 SUPPORTED_MODELS = [
