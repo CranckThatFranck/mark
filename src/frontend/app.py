@@ -208,23 +208,31 @@ class JarvisApp(ctk.CTk):
     def on_mode_change(self, value):
         self.send_action_async("change_mode", {"mode": value})
         
+
     def on_model_change(self, value):
         if value == "Customizado (Digitar ID)":
-            dialog = ctk.CTkInputDialog(text="Digite o ID do Modelo (ex: vertex_ai/gemini... ou openai/gpt-4...):", title="Modelo Customizado")
+            dialog = ctk.CTkInputDialog(text="Digite o ID do Modelo (ex: vertex_ai/gemini...):", title="Modelo Customizado")
             val = dialog.get_input()
             if val:
+                if val not in SUPPORTED_MODELS:
+                    SUPPORTED_MODELS.insert(0, val)
+                    self.model_menu.configure(values=SUPPORTED_MODELS)
                 self.model_var.set(val)
                 self.send_action_async("change_model", {"model": val, "region": self.region_var.get()})
             else:
-                self.model_var.set(SUPPORTED_MODELS[0]) # reverte
+                self.model_var.set(SUPPORTED_MODELS[0])
         else:
             self.send_action_async("change_model", {"model": value, "region": self.region_var.get()})
-            
+
     def on_region_change(self, value):
         if value == "Customizada":
             dialog = ctk.CTkInputDialog(text="Digite a região (ex: us-central1):", title="Região Customizada")
             val = dialog.get_input()
             if val:
+                current_values = self.region_menu.cget("values")
+                if val not in current_values:
+                    current_values.insert(0, val)
+                    self.region_menu.configure(values=current_values)
                 self.region_var.set(val)
                 self.send_action_async("change_model", {"model": self.model_var.get(), "region": val})
             else:
