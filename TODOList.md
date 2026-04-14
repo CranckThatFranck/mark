@@ -1,10 +1,9 @@
 ### Instruções de leitura e movimentação do documento:
 **Inicie a leitura dos iténs em A fazer**: Está será sua lista de to-do divido em itens de ações. Cada workiten será contido em uma linha iniciado em - e finalizado em . 
 ** No ## Fazendo
-- Instalar pacotes RPM finais do backend e frontend na máquina atual.
+- Habilitar o serviço jarvis-backend para iniciar automaticamente no boot (systemctl enable).
 
 ## A fazer
-- Habilitar o serviço jarvis-backend para iniciar automaticamente no boot (systemctl enable).
 - Configurar credenciais do systemd local (override.conf) com chaves da Vertex/Gemini sem comitar segredos.
 - Validar start, stop, restart, status e logs do serviço pós-instalação.
 - Validar launcher .desktop e abertura correta do frontend instalado.
