@@ -3,9 +3,12 @@
 ##active_line4##
 ##active_line5##
 ##active_line6##
-2026-04-13 16:40:49,227 - JarvisServer - INFO - Iniciando Jarvis Backend em ws://127.0.0.1:8765
-2026-04-13 16:40:49,452 - websockets.server - INFO - server listening on 127.0.0.1:8765
-2026-04-13 16:40:49,892 - websockets.server - INFO - connection open
-2026-04-13 16:40:49,892 - JarvisServer - INFO - Nova conexão WebSocket de ('127.0.0.1', 38432)
-2026-04-13 16:40:49,894 - JarvisServer - INFO - Ação recebida: healthcheck
-2026-04-13 16:40:49,894 - JarvisServer - INFO - Ação recebida: get_models
+2026-04-13 21:52:23,781 - agent_runner - INFO - Modelo atualizado para vertex_ai/llama-4-scout-17b-16e-instruct-maas, Região para VertexAI: us-central1
+2026-04-13 21:52:23,781 - JarvisServer - INFO - Iniciando Jarvis Backend em ws://127.0.0.1:8765
+2026-04-13 21:52:24,029 - websockets.server - INFO - server listening on 127.0.0.1:8765
+2026-04-13 21:52:24,214 - websockets.server - INFO - connection open
+2026-04-13 21:52:24,215 - JarvisServer - INFO - Nova conexão WebSocket de ('127.0.0.1', 51610)
+2026-04-13 21:52:24,216 - JarvisServer - INFO - Ação recebida: healthcheck
+2026-04-13 21:52:24,217 - JarvisServer - INFO - Ação recebida: get_models
+2026-04-13 21:52:24,218 - JarvisServer - INFO - Ação recebida: change_model
+2026-04-13 21:52:24,219 - agent_runner - INFO - Modelo atualizado para vertex_ai/llama-4-scout-17b-16e-instruct-maas, Região para VertexAI: us-central1

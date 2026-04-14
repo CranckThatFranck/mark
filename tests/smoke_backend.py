@@ -44,6 +44,19 @@ async def smoke_test():
         assert len(data["data"]["models"]) > 0
         print(f"get_models ok. Modelos: {data['data']['models']}")
 
+        print("Enviando change_model para Custom Vertex...")
+        await websocket.send(json.dumps({"action": "change_model", "payload": {"model": "vertex_ai/llama-4-scout-17b-16e-instruct-maas", "region": "us-central1"}}))
+        response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
+        data = json.loads(response)
+        
+        response2 = await asyncio.wait_for(websocket.recv(), timeout=5.0)
+        data2 = json.loads(response2)
+        
+        responses = [data.get("type"), data2.get("type")]
+        assert "sync_state" in responses
+        assert "action_response" in responses
+        
+        print("Hotswap do Modelo e Regiao recebido com sucesso!")
         print("\nSMOKE TEST DO BACKEND: SUCESSO!")
         await websocket.close()
         return True

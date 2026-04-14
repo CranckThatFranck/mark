@@ -27,7 +27,7 @@ class AgentRunner:
         self.interpreter.llm.model = "gemini-2.5-flash" # default start
         # Podemos adicionar limits aqui
 
-def update_model(self, new_model: str, region: str = None):
+    def update_model(self, new_model: str, region: str = None):
         """
         Atualiza o modelo de LLM usado pelo interpreter e as variaveis
         necessárias para chamadas Vertex AI baseando-se no que está já no OS ou env.

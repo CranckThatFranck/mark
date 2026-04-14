@@ -4,6 +4,7 @@
 ** Feito**: Quando finalizar o itém que estava trabalhando, mova o item para cá quando finalizado! Aqui deverá ser feito o push e commit para o repositório github nessa pasta.
 
 ## Feito
+- Regenerar pacotes .deb e .rpm de backend e frontend após atualizações da stack Vertex.
 - Validar backend com testes reais subindo no novo modelo e trocando de região dinamicamente.
 - Atualizar o README.md detalhando as novas configurações de Vertex AI, chaves, regiões e exemplos de caminhos de credenciais.
 - Atualizar o README.md detalhando as novas configurações de Vertex AI, chaves, regiões e exemplos de caminhos de credenciais.
@@ -60,7 +61,7 @@
 - Integrar o backend ao agent_runner sem depender da CLI solta do Open Interpreter.
 
 ## Fazendo
-- Regenerar pacotes .deb e .rpm de backend e frontend após atualizações da stack Vertex.
+- Validar artefatos finais de empacotamento com as novas mudanças embutidas.
 - Validar backend com testes reais subindo no novo modelo e trocando de região dinamicamente.
 - Atualizar o frontend para permitir a inclusão de Custom Model ID.
 - Atualizar o frontend para listar os novos modelos Vertex AI.
