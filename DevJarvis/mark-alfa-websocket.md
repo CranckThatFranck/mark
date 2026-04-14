@@ -1,6 +1,6 @@
 # Mark Alfa WebSocket/JSON
 
-Este documento descreve o contrato operacional atual entre o frontend do Mark Alfa e o backend Python via WebSocket/JSON. O objetivo e permitir que outro cliente, incluindo um Jarvis central, consiga controlar um backend local ou remoto sem depender do frontend CustomTkinter.
+Este documento descreve o contrato operacional atual entre o frontend do Mark Alfa e o backend Python via WebSocket/JSON. O objetivo e permitir que outro cliente, incluindo um Jarvis central, controle um backend local ou remoto sem depender do frontend CustomTkinter.
 
 ## Transporte
 
@@ -9,7 +9,7 @@ Este documento descreve o contrato operacional atual entre o frontend do Mark Al
 - backend rodando via `systemd`: `jarvis-backend.service`
 - contrato serializado em JSON UTF-8
 
-Cada mensagem enviada pelo cliente usa o envelope:
+Envelope enviado pelo cliente:
 
 ```json
 {
@@ -18,7 +18,7 @@ Cada mensagem enviada pelo cliente usa o envelope:
 }
 ```
 
-Cada resposta sincrona do backend usa:
+Resposta sincronizada:
 
 ```json
 {
@@ -29,7 +29,7 @@ Cada resposta sincrona do backend usa:
 }
 ```
 
-Em falhas:
+Falha sincronizada:
 
 ```json
 {
@@ -42,17 +42,39 @@ Em falhas:
 
 ## Handshake inicial
 
-Assim que uma conexao e aceita, o backend envia `sync_state` sem o cliente precisar pedir:
+Assim que a conexao e aceita, o backend envia `sync_state` sem o cliente precisar pedir.
+
+Exemplo resumido:
 
 ```json
 {
   "type": "sync_state",
   "state": {
     "mode": "agent",
-    "model": "gemini/gemini-3-flash-preview",
+    "model": "gemini/gemini-3.1-pro-preview-customtools",
     "status": "idle",
     "active_task": null,
     "history_revision": 12,
+    "fallback_chain": [
+      "gemini/gemini-3.1-pro-preview-customtools",
+      "gemini/gemini-3.1-pro-preview",
+      "gemini/gemini-2.5-pro",
+      "gemini/gemini-3-flash-preview"
+    ],
+    "credentials": {
+      "active_key_id": "abc123",
+      "active_key_masked": "AIza...1234",
+      "total_keys": 2,
+      "source": "persisted",
+      "keys": [
+        {
+          "id": "abc123",
+          "label": "Principal",
+          "masked": "AIza...1234",
+          "is_active": true
+        }
+      ]
+    },
     "paths": {
       "base_dir": "/var/lib/jarvis-mark",
       "rules_file": "/opt/jarvis/backend/product_config/initial_rules.txt",
@@ -61,43 +83,28 @@ Assim que uma conexao e aceita, o backend envia `sync_state` sem o cliente preci
   },
   "models": {
     "builtin": [
-      "gemini/gemini-3-flash-preview",
       "gemini/gemini-3.1-pro-preview-customtools",
       "gemini/gemini-3.1-pro-preview",
       "gemini/gemini-2.5-pro",
+      "gemini/gemini-3-flash-preview",
       "gemini/gemini-2.5-flash"
     ],
-    "custom": [
-      "gemini/gemini-2.5-flash-exp"
-    ],
-    "all": [
-      "gemini/gemini-3-flash-preview",
-      "gemini/gemini-3.1-pro-preview-customtools",
-      "gemini/gemini-3.1-pro-preview",
-      "gemini/gemini-2.5-pro",
-      "gemini/gemini-2.5-flash",
-      "gemini/gemini-2.5-flash-exp"
-    ]
+    "custom": [],
+    "all": []
   },
-  "history": [
-    {
-      "message_type": "user",
-      "content": "Responda apenas com a palavra teste.",
-      "timestamp": "2026-04-14T14:14:46-03:00"
-    }
-  ]
+  "history": []
 }
 ```
 
 Observacoes:
-
-- `history` sempre vem no handshake atual.
-- `paths.rules_file` e `paths.rules_dir` permitem a um cliente externo abrir ou editar o arquivo padrao de regras iniciais do produto instalado.
-- `history_revision` ajuda um cliente a saber se houve mudanca de historico entre sincronizacoes.
+- `history` hoje e enviado no handshake.
+- `fallback_chain` sempre vem sincronizado.
+- `credentials` nunca inclui segredo completo.
+- `paths.rules_file` e `paths.rules_dir` permitem abrir ou editar o arquivo oficial de regras do produto.
 
 ## Eventos de stream
 
-Durante uma execucao o backend publica eventos assíncronos:
+Durante a execucao o backend publica eventos assincronos:
 
 ```json
 {
@@ -108,16 +115,19 @@ Durante uma execucao o backend publica eventos assíncronos:
 }
 ```
 
-Tipos hoje usados:
+Tipos usados:
+- `user`
+- `message`
+- `status`
+- `code`
+- `console`
+- `system`
 
-- `user`: prompt do operador
-- `message`: resposta principal do agente
-- `status`: estado operacional
-- `code`: bloco de codigo
-- `console`: saida de terminal/execucao
-- `system`: evento tecnico interno
-
-O backend tambem persiste esses eventos no historico da sessao ativa.
+Eventos `system` cobrem, entre outros:
+- fallback automatico de modelo
+- rotacao automatica de chave
+- retomada apos saneamento de tool call invalida
+- reconexao do frontend
 
 ## Acoes suportadas
 
@@ -138,14 +148,14 @@ Resposta:
   "success": true,
   "data": {
     "status": "ok",
-    "model": "gemini/gemini-3-flash-preview"
+    "model": "gemini/gemini-3.1-pro-preview-customtools"
   }
 }
 ```
 
 ### `get_status`
 
-Retorna o mesmo bloco estrutural de `state` usado em `sync_state`.
+Retorna o mesmo bloco `state` usado em `sync_state`.
 
 ### `get_models`
 
@@ -166,7 +176,7 @@ Retorna o catalogo Gemini completo:
 
 ### `get_config`
 
-Retorna configuracao persistida do backend:
+Retorna configuracao persistida do backend junto com fallback e catalogo publico de credenciais:
 
 ```json
 {
@@ -175,8 +185,28 @@ Retorna configuracao persistida do backend:
   "success": true,
   "data": {
     "mode": "agent",
-    "model": "gemini/gemini-3-flash-preview",
-    "custom_models": []
+    "model": "gemini/gemini-3.1-pro-preview-customtools",
+    "custom_models": [],
+    "models": {
+      "builtin": [],
+      "custom": [],
+      "all": []
+    },
+    "fallback_chain": [],
+    "credentials": {
+      "active_key_id": "abc123",
+      "active_key_masked": "AIza...1234",
+      "total_keys": 2,
+      "source": "persisted",
+      "keys": [
+        {
+          "id": "abc123",
+          "label": "Principal",
+          "masked": "AIza...1234",
+          "is_active": true
+        }
+      ]
+    }
   }
 }
 ```
@@ -200,11 +230,9 @@ Pedido:
 ```
 
 Efeitos:
-
 - altera `mode` e/ou `model`
 - persiste `estado/config.json`
 - dispara novo `sync_state` para conexoes ativas
-- responde com `action_response`
 
 ### `change_model`
 
@@ -222,11 +250,9 @@ Pedido:
 ```
 
 Regras:
-
 - somente modelos `gemini/`
-- os modelos builtin sao fixos
-- modelos Gemini extras podem ser adicionados manualmente
-- se o modelo nao for builtin e respeitar `gemini/`, ele entra em `custom_models`
+- modelos extras Gemini entram em `custom_models`
+- modelos nao-Gemini retornam `success=false`
 
 ### `change_mode`
 
@@ -242,9 +268,102 @@ Pedido:
 ```
 
 Valores aceitos:
-
 - `agent`
 - `plan`
+
+### `get_api_keys`
+
+Retorna o catalogo publico de chaves persistidas:
+
+```json
+{
+  "type": "action_response",
+  "action": "get_api_keys",
+  "success": true,
+  "data": {
+    "active_key_id": "abc123",
+    "active_key_masked": "AIza...1234",
+    "total_keys": 2,
+    "keys": [
+      {
+        "id": "abc123",
+        "label": "Principal",
+        "masked": "AIza...1234",
+        "is_active": true
+      }
+    ]
+  }
+}
+```
+
+### `add_api_key`
+
+Pedido:
+
+```json
+{
+  "action": "add_api_key",
+  "payload": {
+    "label": "Backup",
+    "key": "SEGREDO_COMPLETO_AQUI",
+    "set_active": true
+  }
+}
+```
+
+Observacao:
+- o segredo completo so aparece no pedido do cliente para o backend; nunca volta integralmente na resposta
+
+### `update_api_key`
+
+Pedido:
+
+```json
+{
+  "action": "update_api_key",
+  "payload": {
+    "id": "abc123",
+    "label": "Principal editada",
+    "key": "NOVO_SEGREDO_OPCIONAL"
+  }
+}
+```
+
+### `delete_api_key`
+
+Pedido:
+
+```json
+{
+  "action": "delete_api_key",
+  "payload": {
+    "id": "abc123"
+  }
+}
+```
+
+### `select_api_key`
+
+Pedido:
+
+```json
+{
+  "action": "select_api_key",
+  "payload": {
+    "id": "abc123"
+  }
+}
+```
+
+### `rotate_api_key`
+
+Pedido:
+
+```json
+{
+  "action": "rotate_api_key"
+}
+```
 
 ### `execute_task`
 
@@ -259,104 +378,29 @@ Pedido:
 }
 ```
 
-Fluxo:
-
-1. backend responde `action_response` com `success=true`
-2. backend publica `stream` com `message_type=user`
-3. backend publica eventos `status`, `message`, `code`, `console` e `system`
-4. backend atualiza `state.status` para `running`
-5. ao terminar, faz broadcast de `sync_state` com `status=idle`
-
-Se ja existir tarefa em andamento, responde erro:
-
-```json
-{
-  "type": "action_response",
-  "action": "execute_task",
-  "success": false,
-  "error": "Uma tarefa ja esta em execucao"
-}
-```
+Comportamento:
+- aceita apenas uma tarefa por vez
+- responde primeiro com `action_response`
+- depois transmite `stream`
+- ao final volta a publicar `sync_state` com `status=idle`
 
 ### `interrupt`
-
-Interrompe a tarefa em execucao e recria o `AgentRunner`.
 
 Pedido:
 
 ```json
-{"action": "interrupt"}
-```
-
-Efeitos:
-
-- encerra subprocessos do interpretador quando presentes
-- reseta estado de execucao
-- publica evento `system` com interrupcao
-- faz broadcast de `sync_state`
-
-### Acao desconhecida
-
-Qualquer acao nao implementada recebe:
-
-```json
 {
-  "type": "action_response",
-  "action": "acao_desconhecida",
-  "success": false,
-  "error": "Acao desconhecida"
+  "action": "interrupt"
 }
 ```
 
-## Historico da sessao
+Efeito:
+- interrompe a tarefa em andamento
+- reconstrói o runner do agente
+- envia evento tecnico `Tarefa interrompida pelo usuario`
 
-O historico e persistido em `estado/session.json` dentro do `base_dir` ativo do backend.
+## Contratos importantes
 
-Campos por item:
-
-- `message_type`
-- `content`
-- `timestamp`
-
-Mesclagem atual:
-
-- `message`, `code` e `console` consecutivos podem ser concatenados no backend para formar blocos maiores.
-
-## Reconexao e tolerancia a falhas
-
-Comportamento esperado para clientes remotos:
-
-- `ConnectionClosedError`, handshake interrompido e `no close frame received or sent` nao significam queda fatal do daemon;
-- se o cliente reconectar, ele recebe novo `sync_state` com o historico da sessao ativa;
-- durante tarefas longas o backend continua aceitando novas conexoes, porque o streaming do agente nao bloqueia mais o loop principal de rede.
-
-## Regras iniciais do produto instalado
-
-O backend instalado usa como referencia global inicial:
-
-- `/opt/jarvis/backend/product_config/initial_rules.txt`
-
-Esse arquivo:
-
-- nao substitui `~/jarvis_rules.txt` do ambiente do agente desenvolvedor;
-- e o caminho oficial do produto distribuido;
-- aparece em `sync_state.state.paths.rules_file`.
-
-## Integracao remota recomendada
-
-Para um Jarvis central falando com varios backends Mark Alfa:
-
-1. abrir WebSocket no endpoint remoto
-2. aguardar `sync_state`
-3. armazenar `state`, `models`, `history` e `paths`
-4. usar `change_model` e `change_mode` conforme o perfil da tarefa
-5. disparar `execute_task`
-6. consumir `stream`
-7. em reconexao, confiar no novo `sync_state` para reidratar sessao
-
-## Fontes no repositorio
-
-- backend: [src/backend/server.py](/home/francisco/Documentos/repos/mark/src/backend/server.py)
-- protocolo: [src/backend/protocol.py](/home/francisco/Documentos/repos/mark/src/backend/protocol.py)
-- estado: [src/backend/state.py](/home/francisco/Documentos/repos/mark/src/backend/state.py)
-- cliente WebSocket do frontend: [src/frontend/ws_client.py](/home/francisco/Documentos/repos/mark/src/frontend/ws_client.py)
+- segredos completos nunca devem aparecer em `sync_state`, `get_config`, `get_api_keys` ou logs estruturados
+- fallback automatico de modelo e rotacao automatica de chave sao sinalizados via `stream` do tipo `system` e por novo `sync_state`
+- o backend continua Gemini-only e rejeita provedores antigos ou modelos nao-Gemini

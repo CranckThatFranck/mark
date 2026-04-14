@@ -3,7 +3,8 @@ import sys
 
 from websockets.exceptions import ConnectionClosed, ConnectionClosedError, ConnectionClosedOK
 
-from config import BACKEND_LOG
+from config import BACKEND_LOG, ERRORS_LOG, OPERATIONS_LOG
+from observability import redact_text
 
 
 def _exc_from_logging_payload(exc_info):
@@ -68,9 +69,17 @@ class BenignWebSocketRecordFilter(logging.Filter):
         return True
 
 
+class RedactingFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        rendered = super().format(record)
+        return redact_text(rendered)
+
+
 def setup_logger():
     """Configura o logger com persistencia em arquivo e stdout."""
     BACKEND_LOG.parent.mkdir(parents=True, exist_ok=True)
+    OPERATIONS_LOG.parent.mkdir(parents=True, exist_ok=True)
+    ERRORS_LOG.parent.mkdir(parents=True, exist_ok=True)
 
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
@@ -78,7 +87,7 @@ def setup_logger():
     if logger.handlers:
         logger.handlers.clear()
 
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    formatter = RedactingFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     websocket_filter = BenignWebSocketRecordFilter()
 
     file_handler = logging.FileHandler(BACKEND_LOG)
@@ -86,13 +95,40 @@ def setup_logger():
     file_handler.setFormatter(formatter)
     file_handler.addFilter(websocket_filter)
 
+    error_handler = logging.FileHandler(ERRORS_LOG)
+    error_handler.setLevel(logging.ERROR)
+    error_handler.setFormatter(formatter)
+    error_handler.addFilter(websocket_filter)
+
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(formatter)
     console_handler.addFilter(websocket_filter)
 
     logger.addHandler(file_handler)
+    logger.addHandler(error_handler)
     logger.addHandler(console_handler)
+
+    operations_logger = logging.getLogger("MarkOperations")
+    operations_logger.setLevel(logging.INFO)
+    operations_logger.propagate = False
+    if operations_logger.handlers:
+        operations_logger.handlers.clear()
+    operations_handler = logging.FileHandler(OPERATIONS_LOG)
+    operations_handler.setLevel(logging.INFO)
+    operations_handler.setFormatter(RedactingFormatter("%(message)s"))
+    operations_logger.addHandler(operations_handler)
+
+    structured_errors_logger = logging.getLogger("MarkErrors")
+    structured_errors_logger.setLevel(logging.ERROR)
+    structured_errors_logger.propagate = False
+    if structured_errors_logger.handlers:
+        structured_errors_logger.handlers.clear()
+    structured_errors_handler = logging.FileHandler(ERRORS_LOG)
+    structured_errors_handler.setLevel(logging.ERROR)
+    structured_errors_handler.setFormatter(RedactingFormatter("%(message)s"))
+    structured_errors_logger.addHandler(structured_errors_handler)
+
     return logger
 
 

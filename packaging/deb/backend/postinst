@@ -5,6 +5,10 @@ python3 -m venv /opt/jarvis/venv || true
 /opt/jarvis/venv/bin/pip install --upgrade pip "setuptools<70.0.0"
 /opt/jarvis/venv/bin/pip install -r /opt/jarvis/backend/requirements.txt
 
+mkdir -p /var/lib/jarvis-mark /var/log/jarvis
+chmod 700 /var/lib/jarvis-mark || true
+chmod 750 /var/log/jarvis || true
+
 if [ "$1" = "configure" ]; then
     systemctl daemon-reload || true
     systemctl enable jarvis-backend.service || true

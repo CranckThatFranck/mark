@@ -5,10 +5,12 @@ import websockets
 from websockets.exceptions import ConnectionClosed, ConnectionClosedError, ConnectionClosedOK
 
 from agent_runner import AgentRunner
-from config import WS_HOST, WS_PORT, is_supported_model, normalize_model, now_timestamp
+from config import MODEL_FALLBACK_CHAIN, WS_HOST, WS_PORT, is_supported_model, normalize_model, now_timestamp
 from config_manager import save_config
 from context_setup import prepare_context_structure
+from credentials import CredentialValidationError, GeminiCredentialStore
 from logger import build_websocket_server_logger, setup_logger
+from observability import log_error, log_operation
 from process_manager import ProcessManager
 from protocol import ProtocolParser
 from state import global_state
@@ -19,6 +21,7 @@ logger = logging.getLogger("MarkServer")
 
 
 agent_runner = None
+credential_store = None
 active_connections = set()
 
 
@@ -59,6 +62,60 @@ def persist_runtime_config():
     )
 
 
+def build_state_payload():
+    state_payload = global_state.to_dict()
+    state_payload["fallback_chain"] = MODEL_FALLBACK_CHAIN[:]
+
+    if credential_store:
+        catalog = credential_store.get_public_catalog()
+        active = credential_store.resolve_active_key()
+        state_payload["credentials"] = {
+            "active_key_id": catalog.get("active_key_id"),
+            "active_key_masked": catalog.get("active_key_masked"),
+            "total_keys": catalog.get("total_keys", 0),
+            "source": active.get("source"),
+            "keys": catalog.get("keys", []),
+        }
+    else:
+        state_payload["credentials"] = {
+            "active_key_id": None,
+            "active_key_masked": "",
+            "total_keys": 0,
+            "source": "missing",
+        }
+
+    return state_payload
+
+
+def build_config_payload():
+    catalog = credential_store.get_public_catalog() if credential_store else {"active_key_id": None, "keys": []}
+    active = credential_store.resolve_active_key() if credential_store else {"source": "missing"}
+    return {
+        "mode": global_state.mode,
+        "model": global_state.model,
+        "custom_models": global_state.custom_models,
+        "models": global_state.get_model_catalog(),
+        "fallback_chain": MODEL_FALLBACK_CHAIN[:],
+        "credentials": {
+            **catalog,
+            "source": active.get("source"),
+        },
+    }
+
+
+async def on_runtime_state_change(new_model: str, reason: str, details: str):
+    global_state.model = new_model
+    global_state.remember_custom_model(new_model)
+    persist_runtime_config()
+    log_operation(
+        "frontend_notified_runtime_state_change",
+        model=new_model,
+        reason=reason,
+        details=details,
+    )
+    await broadcast_state()
+
+
 def apply_model_selection(raw_model_name: str):
     model_name = normalize_model(raw_model_name)
     if not model_name:
@@ -72,7 +129,7 @@ def apply_model_selection(raw_model_name: str):
 
 async def send_sync_state(websocket, include_history: bool = False):
     sync_message = ProtocolParser.build_sync_state(
-        global_state.to_dict(),
+        build_state_payload(),
         models=global_state.get_model_catalog(),
         history=global_state.get_history_snapshot() if include_history else None,
     )
@@ -133,8 +190,11 @@ async def handle_action(websocket, data: dict):
 
     action = data.get("action")
     payload = data.get("payload", {})
+    if not isinstance(payload, dict):
+        payload = {}
 
     logger.info(f"Acao recebida: {action}")
+    log_operation("action_received", action=action)
 
     if action == "healthcheck":
         response = ProtocolParser.build_action_response(
@@ -146,7 +206,7 @@ async def handle_action(websocket, data: dict):
         return
 
     if action == "get_status":
-        response = ProtocolParser.build_action_response("get_status", True, data=global_state.to_dict())
+        response = ProtocolParser.build_action_response("get_status", True, data=build_state_payload())
         await safe_send(websocket, response, action or "action_response")
         return
 
@@ -163,12 +223,119 @@ async def handle_action(websocket, data: dict):
         response = ProtocolParser.build_action_response(
             "get_config",
             True,
-            data={
-                "mode": global_state.mode,
-                "model": global_state.model,
-                "custom_models": global_state.custom_models,
-            },
+            data=build_config_payload(),
         )
+        await safe_send(websocket, response, action or "action_response")
+        return
+
+    if action == "get_api_keys":
+        response = ProtocolParser.build_action_response(
+            "get_api_keys",
+            True,
+            data=credential_store.get_public_catalog() if credential_store else {"active_key_id": None, "keys": []},
+        )
+        await safe_send(websocket, response, action or "action_response")
+        return
+
+    if action == "add_api_key":
+        try:
+            catalog = credential_store.add_key(
+                key=payload.get("key"),
+                label=payload.get("label"),
+                set_active=bool(payload.get("set_active", True)),
+            )
+            agent_runner.refresh_runtime_api_key(reason="manual_add_api_key")
+            await broadcast_state()
+            log_operation(
+                "api_key_added",
+                active_key_id=catalog.get("active_key_id"),
+                total_keys=catalog.get("total_keys", 0),
+            )
+            response = ProtocolParser.build_action_response("add_api_key", True, data=catalog)
+        except CredentialValidationError as exc:
+            response = ProtocolParser.build_action_response("add_api_key", False, error=str(exc))
+        except Exception as exc:
+            log_error("api_key_add_failed", exc)
+            response = ProtocolParser.build_action_response("add_api_key", False, error="Falha inesperada ao cadastrar chave")
+
+        await safe_send(websocket, response, action or "action_response")
+        return
+
+    if action == "update_api_key":
+        try:
+            key_id = payload.get("id")
+            if not key_id:
+                raise CredentialValidationError("ID da chave nao enviado")
+            catalog = credential_store.update_key(
+                key_id=key_id,
+                label=payload.get("label"),
+                key=payload.get("key"),
+                set_active=bool(payload.get("set_active", False)),
+            )
+            agent_runner.refresh_runtime_api_key(reason="manual_update_api_key")
+            await broadcast_state()
+            log_operation("api_key_updated", key_id=key_id)
+            response = ProtocolParser.build_action_response("update_api_key", True, data=catalog)
+        except CredentialValidationError as exc:
+            response = ProtocolParser.build_action_response("update_api_key", False, error=str(exc))
+        except Exception as exc:
+            log_error("api_key_update_failed", exc)
+            response = ProtocolParser.build_action_response("update_api_key", False, error="Falha inesperada ao editar chave")
+
+        await safe_send(websocket, response, action or "action_response")
+        return
+
+    if action == "delete_api_key":
+        try:
+            key_id = payload.get("id")
+            if not key_id:
+                raise CredentialValidationError("ID da chave nao enviado")
+            _, catalog = credential_store.delete_key(key_id)
+            agent_runner.refresh_runtime_api_key(reason="manual_delete_api_key")
+            await broadcast_state()
+            log_operation("api_key_deleted", key_id=key_id)
+            response = ProtocolParser.build_action_response("delete_api_key", True, data=catalog)
+        except CredentialValidationError as exc:
+            response = ProtocolParser.build_action_response("delete_api_key", False, error=str(exc))
+        except Exception as exc:
+            log_error("api_key_delete_failed", exc)
+            response = ProtocolParser.build_action_response("delete_api_key", False, error="Falha inesperada ao remover chave")
+
+        await safe_send(websocket, response, action or "action_response")
+        return
+
+    if action == "select_api_key":
+        try:
+            key_id = payload.get("id")
+            if not key_id:
+                raise CredentialValidationError("ID da chave nao enviado")
+            catalog = credential_store.select_key(key_id)
+            agent_runner.refresh_runtime_api_key(reason="manual_select_api_key")
+            await broadcast_state()
+            log_operation("api_key_selected", key_id=key_id)
+            response = ProtocolParser.build_action_response("select_api_key", True, data=catalog)
+        except CredentialValidationError as exc:
+            response = ProtocolParser.build_action_response("select_api_key", False, error=str(exc))
+        except Exception as exc:
+            log_error("api_key_select_failed", exc)
+            response = ProtocolParser.build_action_response("select_api_key", False, error="Falha inesperada ao selecionar chave")
+
+        await safe_send(websocket, response, action or "action_response")
+        return
+
+    if action == "rotate_api_key":
+        try:
+            catalog = credential_store.rotate_key()
+            agent_runner.refresh_runtime_api_key(reason="manual_rotate_api_key")
+            await broadcast_state()
+            log_operation("api_key_rotated_manual", active_key_id=catalog.get("active_key_id"))
+            response = ProtocolParser.build_action_response("rotate_api_key", True, data=catalog)
+        except CredentialValidationError as exc:
+            response = ProtocolParser.build_action_response("rotate_api_key", False, error=str(exc))
+        except Exception as exc:
+            log_error("api_key_rotate_failed", exc)
+            response = ProtocolParser.build_action_response("rotate_api_key", False, error="Falha inesperada na rotacao")
+
         await safe_send(websocket, response, action or "action_response")
         return
 
@@ -183,21 +350,21 @@ async def handle_action(websocket, data: dict):
 
             if "model" in new_config:
                 apply_model_selection(new_config.get("model"))
-                agent_runner.update_model(global_state.model)
+                agent_runner.update_model(global_state.model, reason="update_config")
 
             persist_runtime_config()
             await broadcast_state()
             response = ProtocolParser.build_action_response(
                 "update_config",
                 True,
-                data={
-                    "model": global_state.model,
-                    "mode": global_state.mode,
-                    "models": global_state.get_model_catalog(),
-                },
+                data=build_config_payload(),
             )
+            log_operation("config_updated", mode=global_state.mode, model=global_state.model)
         except ValueError as exc:
             response = ProtocolParser.build_action_response("update_config", False, error=str(exc))
+        except Exception as exc:
+            log_error("config_update_failed", exc)
+            response = ProtocolParser.build_action_response("update_config", False, error="Falha inesperada ao atualizar configuracao")
         await safe_send(websocket, response, action or "action_response")
         return
 
@@ -205,7 +372,7 @@ async def handle_action(websocket, data: dict):
         try:
             apply_model_selection(payload.get("model"))
             persist_runtime_config()
-            agent_runner.update_model(global_state.model)
+            agent_runner.update_model(global_state.model, reason="manual")
             await broadcast_state()
             response = ProtocolParser.build_action_response(
                 "change_model",
@@ -215,8 +382,13 @@ async def handle_action(websocket, data: dict):
                     "models": global_state.get_model_catalog(),
                 },
             )
+            log_operation("manual_model_switch_success", model=global_state.model)
         except ValueError as exc:
             response = ProtocolParser.build_action_response("change_model", False, error=str(exc))
+            log_operation("manual_model_switch_failed", requested_model=payload.get("model"), reason=str(exc))
+        except Exception as exc:
+            log_error("manual_model_switch_failed_unexpected", exc, requested_model=payload.get("model"))
+            response = ProtocolParser.build_action_response("change_model", False, error="Falha inesperada na troca de modelo")
         await safe_send(websocket, response, action or "action_response")
         return
 
@@ -227,6 +399,7 @@ async def handle_action(websocket, data: dict):
             persist_runtime_config()
             await broadcast_state()
             response = ProtocolParser.build_action_response("change_mode", True, data={"mode": global_state.mode})
+            log_operation("manual_mode_switch", mode=global_state.mode)
         else:
             response = ProtocolParser.build_action_response("change_mode", False, error="Modo invalido")
         await safe_send(websocket, response, action or "action_response")
@@ -250,6 +423,7 @@ async def handle_action(websocket, data: dict):
 
         response = ProtocolParser.build_action_response("execute_task", True)
         await safe_send(websocket, response, action or "action_response")
+        log_operation("execute_task_accepted", mode=global_state.mode, model=global_state.model)
         asyncio.create_task(agent_runner.run_task(prompt, global_state.mode))
         return
 
@@ -271,11 +445,17 @@ async def handle_action(websocket, data: dict):
             ProcessManager.kill_pgid(global_state.interpreter_pgid)
 
         global_state.reset_execution()
-        agent_runner = AgentRunner(send_stream_cb, set_status_cb)
-        agent_runner.update_model(global_state.model)
+        agent_runner = AgentRunner(
+            send_stream_cb,
+            set_status_cb,
+            runtime_state_cb=on_runtime_state_change,
+            credential_store=credential_store,
+        )
+        agent_runner.update_model(global_state.model, reason="interrupt_rebuild")
 
         await broadcast_state()
         await send_stream_cb("system", "Tarefa interrompida pelo usuario")
+        log_operation("task_interrupted", model=global_state.model)
 
         response = ProtocolParser.build_action_response("interrupt", True)
         await safe_send(websocket, response, action or "action_response")
@@ -288,6 +468,7 @@ async def handle_action(websocket, data: dict):
 
 async def connection_handler(websocket):
     logger.info(f"Nova conexao WebSocket de {websocket.remote_address}")
+    log_operation("frontend_connection_open", remote=str(websocket.remote_address))
     active_connections.add(websocket)
 
     try:
@@ -300,22 +481,44 @@ async def connection_handler(websocket):
                 await handle_action(websocket, data)
     except ConnectionClosedOK:
         logger.info(f"Conexao encerrada normalmente: {websocket.remote_address}")
+        log_operation("frontend_connection_closed", remote=str(websocket.remote_address), reason="closed_ok")
     except ConnectionClosedError as exc:
         logger.info(f"Conexao interrompida sem queda do backend: {websocket.remote_address} ({exc})")
+        log_operation(
+            "frontend_connection_reconnect",
+            remote=str(websocket.remote_address),
+            reason="connection_closed_error",
+            details=str(exc),
+        )
     except ConnectionClosed:
         logger.info(f"Conexao fechada: {websocket.remote_address}")
+        log_operation("frontend_connection_closed", remote=str(websocket.remote_address), reason="connection_closed")
     except Exception as exc:
         logger.error(f"Erro inesperado na conexao: {exc}")
+        log_error("frontend_connection_unexpected_error", exc, remote=str(websocket.remote_address))
     finally:
         active_connections.discard(websocket)
 
 
 async def start_server():
-    global agent_runner
+    global agent_runner, credential_store
 
     prepare_context_structure()
-    agent_runner = AgentRunner(send_stream_cb, set_status_cb)
-    agent_runner.update_model(global_state.model)
+    credential_store = GeminiCredentialStore()
+    agent_runner = AgentRunner(
+        send_stream_cb,
+        set_status_cb,
+        runtime_state_cb=on_runtime_state_change,
+        credential_store=credential_store,
+    )
+    agent_runner.update_model(global_state.model, reason="startup_restore")
+    log_operation(
+        "backend_started",
+        host=WS_HOST,
+        port=WS_PORT,
+        active_model=global_state.model,
+        fallback_chain=MODEL_FALLBACK_CHAIN,
+    )
 
     logger.info(f"Iniciando Mark Backend em ws://{WS_HOST}:{WS_PORT}")
     async with websockets.serve(

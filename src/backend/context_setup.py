@@ -7,8 +7,10 @@ from config import (
     CONFIG_FILE,
     CONTEXTS_DIR,
     DEFAULT_INITIAL_RULES,
+    ERRORS_LOG,
     INITIAL_RULES_FILE,
     MEMORY_LOG,
+    OPERATIONS_LOG,
     SESSION_FILE,
     STATE_DIR,
     TRASH_DIR,
@@ -34,6 +36,8 @@ def prepare_context_structure():
     _touch_text_file(MEMORY_LOG, "=== Inicio do Log de Memoria do Mark ===\n")
     _touch_text_file(CHANGE_LOG, "=== Inicio do Log de Alteracoes do Mark ===\n")
     _touch_text_file(BACKEND_LOG, "")
+    _touch_text_file(OPERATIONS_LOG, "")
+    _touch_text_file(ERRORS_LOG, "")
     _touch_text_file(INITIAL_RULES_FILE, DEFAULT_INITIAL_RULES)
 
     CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)

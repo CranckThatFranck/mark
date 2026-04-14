@@ -10,14 +10,18 @@ CURRENT_BACKEND_DIR = Path(__file__).resolve().parent
 PRODUCT_CONFIG_DIR = CURRENT_BACKEND_DIR / "product_config"
 INITIAL_RULES_FILE = PRODUCT_CONFIG_DIR / "initial_rules.txt"
 INSTALLED_STATE_DIR = Path("/var/lib/jarvis-mark")
+SYSTEM_LOG_DIR = Path("/var/log/jarvis")
 
 
-DEFAULT_MODEL = "gemini/gemini-3-flash-preview"
-BUILTIN_MODELS = [
-    "gemini/gemini-3-flash-preview",
+MODEL_FALLBACK_CHAIN = [
     "gemini/gemini-3.1-pro-preview-customtools",
     "gemini/gemini-3.1-pro-preview",
     "gemini/gemini-2.5-pro",
+    "gemini/gemini-3-flash-preview",
+]
+DEFAULT_MODEL = MODEL_FALLBACK_CHAIN[0]
+BUILTIN_MODELS = [
+    *MODEL_FALLBACK_CHAIN,
     "gemini/gemini-2.5-flash",
 ]
 SUPPORTED_MODELS = BUILTIN_MODELS[:]
@@ -86,7 +90,20 @@ def get_base_dir() -> Path:
 
 
 BASE_DIR = get_base_dir()
-LOGS_DIR = BASE_DIR / "logs"
+
+
+def get_logs_dir() -> Path:
+    override = os.environ.get("MARK_LOG_DIR")
+    if override:
+        return Path(override).expanduser()
+
+    if _installed_layout_active():
+        return SYSTEM_LOG_DIR
+
+    return BASE_DIR / "logs"
+
+
+LOGS_DIR = get_logs_dir()
 MEMORY_DIR = BASE_DIR / "memoria"
 STATE_DIR = BASE_DIR / "estado"
 CONTEXTS_DIR = BASE_DIR / "contextos"
@@ -95,8 +112,11 @@ TRASH_DIR = BASE_DIR / "lixo"
 MEMORY_LOG = MEMORY_DIR / "MemoriaDoJarvis.log"
 CHANGE_LOG = LOGS_DIR / "change.log"
 BACKEND_LOG = LOGS_DIR / "backend.log"
+OPERATIONS_LOG = LOGS_DIR / "operations.log"
+ERRORS_LOG = LOGS_DIR / "errors.log"
 CONFIG_FILE = STATE_DIR / "config.json"
 SESSION_FILE = STATE_DIR / "session.json"
+CREDENTIALS_FILE = STATE_DIR / "credentials.json"
 
 
 def now_timestamp() -> str:

@@ -16,6 +16,8 @@ from ws_client import JarvisWSClient
 
 
 ADD_MODEL_LABEL = "Adicionar Gemini..."
+ADD_API_KEY_LABEL = "Cadastrar API key Gemini..."
+EMPTY_API_KEY_LABEL = "Sem chave persistida (usa GOOGLE_API_KEY)"
 USER_MESSAGE_TYPES = {"user", "message"}
 MERGEABLE_TECHNICAL_TYPES = {"code", "console"}
 AUTO_SCROLL_THRESHOLD = 0.04
@@ -78,7 +80,11 @@ class JarvisApp(ctk.CTk):
         self.connection_detail = ""
         self.known_models = []
         self.last_confirmed_model = ""
+        self.pending_model_change = None
         self.last_confirmed_mode = "agent"
+        self.api_key_catalog = {"active_key_id": None, "keys": []}
+        self.api_key_display_to_id = {}
+        self._syncing_api_key_menu = False
         self.backend_paths = {}
         self.conversation_blocks = []
         self.technical_blocks = []
@@ -108,7 +114,7 @@ class JarvisApp(ctk.CTk):
     def build_sidebar(self):
         self.sidebar_frame = ctk.CTkFrame(self, width=260, corner_radius=0, fg_color="#171a1c")
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
-        self.sidebar_frame.grid_rowconfigure(14, weight=1)
+        self.sidebar_frame.grid_rowconfigure(17, weight=1)
 
         title_font = ctk.CTkFont(size=22, weight="bold")
         section_font = ctk.CTkFont(size=12, weight="bold")
@@ -226,6 +232,60 @@ class JarvisApp(ctk.CTk):
         )
         self.add_model_btn.grid(row=9, column=0, padx=20, pady=(0, 10), sticky="ew")
 
+        self.api_key_label = ctk.CTkLabel(
+            self.sidebar_frame,
+            text="API Key Gemini ativa",
+            font=section_font,
+            anchor="w",
+            text_color="#c7d0d9",
+        )
+        self.api_key_label.grid(row=10, column=0, padx=20, pady=(0, 6), sticky="ew")
+
+        self.api_key_var = ctk.StringVar(value=EMPTY_API_KEY_LABEL)
+        self.api_key_menu = ctk.CTkOptionMenu(
+            self.sidebar_frame,
+            values=[EMPTY_API_KEY_LABEL],
+            variable=self.api_key_var,
+            command=self.on_api_key_selected,
+            dynamic_resizing=False,
+            fg_color="#2e3642",
+            button_color="#3d4c5d",
+            button_hover_color="#4a5c72",
+        )
+        self.api_key_menu.grid(row=11, column=0, padx=20, pady=(0, 8), sticky="ew")
+
+        self.api_key_actions_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
+        self.api_key_actions_frame.grid(row=12, column=0, padx=20, pady=(0, 10), sticky="ew")
+        self.api_key_actions_frame.grid_columnconfigure(0, weight=1)
+        self.api_key_actions_frame.grid_columnconfigure(1, weight=1)
+
+        self.add_api_key_btn = ctk.CTkButton(
+            self.api_key_actions_frame,
+            text=ADD_API_KEY_LABEL,
+            command=self.on_add_api_key,
+            fg_color="#40534f",
+            hover_color="#4f6762",
+        )
+        self.add_api_key_btn.grid(row=0, column=0, columnspan=2, pady=(0, 8), sticky="ew")
+
+        self.edit_api_key_btn = ctk.CTkButton(
+            self.api_key_actions_frame,
+            text="Editar key",
+            command=self.on_edit_api_key,
+            fg_color="#2f3e4a",
+            hover_color="#3a4d5d",
+        )
+        self.edit_api_key_btn.grid(row=1, column=0, padx=(0, 6), sticky="ew")
+
+        self.rotate_api_key_btn = ctk.CTkButton(
+            self.api_key_actions_frame,
+            text="Rotacionar",
+            command=self.on_rotate_api_key,
+            fg_color="#5a4722",
+            hover_color="#6d5729",
+        )
+        self.rotate_api_key_btn.grid(row=1, column=1, padx=(6, 0), sticky="ew")
+
         self.sync_btn = ctk.CTkButton(
             self.sidebar_frame,
             text="Sincronizar",
@@ -233,7 +293,7 @@ class JarvisApp(ctk.CTk):
             fg_color="#25353f",
             hover_color="#2d4655",
         )
-        self.sync_btn.grid(row=10, column=0, padx=20, pady=(0, 10), sticky="ew")
+        self.sync_btn.grid(row=13, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         self.rules_btn = ctk.CTkButton(
             self.sidebar_frame,
@@ -242,7 +302,7 @@ class JarvisApp(ctk.CTk):
             fg_color="#3d3450",
             hover_color="#4d4266",
         )
-        self.rules_btn.grid(row=11, column=0, padx=20, pady=(0, 10), sticky="ew")
+        self.rules_btn.grid(row=14, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         self.rules_dir_btn = ctk.CTkButton(
             self.sidebar_frame,
@@ -251,7 +311,7 @@ class JarvisApp(ctk.CTk):
             fg_color="#2b313d",
             hover_color="#384253",
         )
-        self.rules_dir_btn.grid(row=12, column=0, padx=20, pady=(0, 10), sticky="ew")
+        self.rules_dir_btn.grid(row=15, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         self.toggle_technical_btn = ctk.CTkButton(
             self.sidebar_frame,
@@ -260,7 +320,7 @@ class JarvisApp(ctk.CTk):
             fg_color="#31414a",
             hover_color="#3b4f59",
         )
-        self.toggle_technical_btn.grid(row=13, column=0, padx=20, pady=(0, 10), sticky="ew")
+        self.toggle_technical_btn.grid(row=16, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         self.kill_btn = ctk.CTkButton(
             self.sidebar_frame,
@@ -269,7 +329,7 @@ class JarvisApp(ctk.CTk):
             fg_color="#8c2f39",
             hover_color="#75262f",
         )
-        self.kill_btn.grid(row=15, column=0, padx=20, pady=(0, 20), sticky="ew")
+        self.kill_btn.grid(row=18, column=0, padx=20, pady=(0, 20), sticky="ew")
 
         self.update_backend_target_widgets()
 
@@ -749,6 +809,8 @@ class JarvisApp(ctk.CTk):
                 else f"Conexao estabelecida com o backend em {self.backend_target_display()}."
             )
             self.append_technical_entry("system", message)
+            self.send_action_async("get_config")
+            self.send_action_async("get_api_keys")
             self._last_connection_notice = ("connected", "", None)
             return
 
@@ -789,6 +851,10 @@ class JarvisApp(ctk.CTk):
         paths = state.get("paths", {})
         if isinstance(paths, dict):
             self.backend_paths = paths
+
+        credentials = state.get("credentials", {})
+        if isinstance(credentials, dict):
+            self.update_api_key_catalog(credentials)
 
         status = state.get("status", "idle")
         active_task = state.get("active_task")
@@ -834,6 +900,62 @@ class JarvisApp(ctk.CTk):
         self.known_models = sanitized
         self.model_menu.configure(values=self.known_models)
 
+    def update_api_key_catalog(self, catalog):
+        if not isinstance(catalog, dict):
+            return
+
+        raw_keys = catalog.get("keys", [])
+        active_key_id = catalog.get("active_key_id")
+
+        sanitized_keys = []
+        for item in raw_keys:
+            if not isinstance(item, dict):
+                continue
+            key_id = str(item.get("id", "")).strip()
+            label = str(item.get("label", "")).strip()
+            masked = str(item.get("masked", "")).strip()
+            if not key_id:
+                continue
+            sanitized_keys.append(
+                {
+                    "id": key_id,
+                    "label": label or "Gemini key",
+                    "masked": masked or "***",
+                }
+            )
+
+        self.api_key_catalog = {
+            "active_key_id": active_key_id,
+            "keys": sanitized_keys,
+        }
+
+        values = []
+        mapping = {}
+        active_display = ""
+        for item in sanitized_keys:
+            display = f"{item['label']} | {item['masked']}"
+            values.append(display)
+            mapping[display] = item["id"]
+            if item["id"] == active_key_id:
+                active_display = display
+
+        if not values:
+            values = [EMPTY_API_KEY_LABEL]
+            mapping = {EMPTY_API_KEY_LABEL: None}
+            active_display = EMPTY_API_KEY_LABEL
+        elif not active_display:
+            active_display = values[0]
+
+        self.api_key_display_to_id = mapping
+        self._syncing_api_key_menu = True
+        self.api_key_menu.configure(values=values)
+        self.api_key_var.set(active_display)
+        self._syncing_api_key_menu = False
+
+    def get_selected_api_key_id(self):
+        selected_display = self.api_key_var.get().strip()
+        return self.api_key_display_to_id.get(selected_display)
+
     def ensure_model_visible(self, model_name):
         if not model_name:
             return
@@ -855,6 +977,24 @@ class JarvisApp(ctk.CTk):
                 self.apply_state(payload)
                 if payload.get("custom_models"):
                     self.update_model_catalog({"all": [*self.known_models, *payload.get("custom_models", [])]})
+                if isinstance(payload.get("credentials"), dict):
+                    self.update_api_key_catalog(payload.get("credentials"))
+                return
+
+            if action in {"get_api_keys", "add_api_key", "update_api_key", "delete_api_key", "select_api_key", "rotate_api_key"}:
+                if isinstance(payload, dict):
+                    self.update_api_key_catalog(payload)
+
+                if action == "add_api_key":
+                    self.append_technical_entry("system", "API key Gemini cadastrada com sucesso.")
+                elif action == "update_api_key":
+                    self.append_technical_entry("system", "API key Gemini atualizada com sucesso.")
+                elif action == "delete_api_key":
+                    self.append_technical_entry("system", "API key Gemini removida com sucesso.")
+                elif action == "select_api_key":
+                    self.append_technical_entry("system", "API key Gemini ativa alterada manualmente.")
+                elif action == "rotate_api_key":
+                    self.append_technical_entry("system", "Rotacao manual da API key Gemini concluida.")
                 return
 
             if action in {"get_models", "change_model", "update_config"}:
@@ -867,10 +1007,30 @@ class JarvisApp(ctk.CTk):
                     self.last_confirmed_model = payload["model"]
                     self.ensure_model_visible(self.last_confirmed_model)
                     self.model_var.set(self.last_confirmed_model)
+
+                if action == "change_model":
+                    confirmed_model = payload.get("model") if isinstance(payload, dict) else ""
+                    self.append_technical_entry(
+                        "system",
+                        f"Troca manual de modelo confirmada com sucesso: {confirmed_model or self.model_var.get()}.",
+                    )
+                    self.pending_model_change = None
             return
 
         if action == "change_model" and self.last_confirmed_model:
             self.model_var.set(self.last_confirmed_model)
+            failed_target = self.pending_model_change or self.last_confirmed_model
+            self.append_technical_entry(
+                "system",
+                f"Falha na troca manual de modelo para {failed_target}: {data.get('error', 'erro nao informado')}",
+            )
+            self.pending_model_change = None
+            return
+
+        if action in {"add_api_key", "update_api_key", "delete_api_key", "select_api_key", "rotate_api_key"}:
+            self.append_technical_entry("system", f"Falha na acao de API key: {data.get('error', 'erro nao informado')}")
+            return
+
         self.append_technical_entry("system", data.get("error", "A acao falhou."))
 
     def clear_history_views(self):
@@ -1219,8 +1379,112 @@ class JarvisApp(ctk.CTk):
             self.mode_var.set(self.last_confirmed_mode)
 
     def on_model_change(self, value):
+        if not value or value == self.last_confirmed_model:
+            return
+        self.pending_model_change = value
         if not self.send_action_async("change_model", {"model": value}) and self.last_confirmed_model:
             self.model_var.set(self.last_confirmed_model)
+            self.pending_model_change = None
+
+    def on_api_key_selected(self, selected_value):
+        if self._syncing_api_key_menu:
+            return
+        selected_id = self.api_key_display_to_id.get(selected_value)
+        if not selected_id:
+            return
+        if selected_id == self.api_key_catalog.get("active_key_id"):
+            return
+        self.send_action_async("select_api_key", {"id": selected_id})
+
+    def on_add_api_key(self):
+        if not self.is_backend_connected():
+            self.append_technical_entry("system", "Conecte ao backend antes de cadastrar uma API key Gemini.")
+            return
+
+        label_dialog = ctk.CTkInputDialog(
+            text="Nome da chave (opcional):",
+            title="Cadastrar API key Gemini",
+        )
+        label_value = label_dialog.get_input()
+        if label_value is None:
+            return
+
+        key_dialog = ctk.CTkInputDialog(
+            text="Cole a API key Gemini (obrigatorio):",
+            title="Cadastrar API key Gemini",
+        )
+        key_value = key_dialog.get_input()
+        if key_value is None:
+            return
+
+        normalized_key = key_value.strip()
+        if not normalized_key:
+            self.append_technical_entry("system", "Cadastro cancelado: API key Gemini vazia.")
+            return
+
+        payload = {
+            "label": (label_value or "").strip(),
+            "key": normalized_key,
+            "set_active": True,
+        }
+        self.send_action_async("add_api_key", payload)
+
+    def on_edit_api_key(self):
+        if not self.is_backend_connected():
+            self.append_technical_entry("system", "Conecte ao backend antes de editar uma API key Gemini.")
+            return
+
+        selected_id = self.get_selected_api_key_id()
+        if not selected_id:
+            self.append_technical_entry("system", "Selecione uma API key Gemini persistida para editar.")
+            return
+
+        current_key = None
+        for item in self.api_key_catalog.get("keys", []):
+            if item.get("id") == selected_id:
+                current_key = item
+                break
+
+        if current_key is None:
+            self.append_technical_entry("system", "Chave selecionada nao encontrada no catalogo local.")
+            return
+
+        label_dialog = ctk.CTkInputDialog(
+            text=(
+                "Novo nome da chave (deixe vazio para manter):\n"
+                f"Atual: {current_key.get('label', 'Gemini key')}"
+            ),
+            title="Editar API key Gemini",
+        )
+        new_label = label_dialog.get_input()
+        if new_label is None:
+            return
+
+        key_dialog = ctk.CTkInputDialog(
+            text="Nova API key (deixe vazio para manter a atual):",
+            title="Editar API key Gemini",
+        )
+        new_key = key_dialog.get_input()
+        if new_key is None:
+            return
+
+        payload = {"id": selected_id}
+        if isinstance(new_label, str) and new_label.strip():
+            payload["label"] = new_label.strip()
+        if isinstance(new_key, str) and new_key.strip():
+            payload["key"] = new_key.strip()
+
+        if len(payload) == 1:
+            self.append_technical_entry("system", "Edicao cancelada: nenhum campo foi alterado.")
+            return
+
+        self.send_action_async("update_api_key", payload)
+
+    def on_rotate_api_key(self):
+        if not self.is_backend_connected():
+            self.append_technical_entry("system", "Conecte ao backend antes de rotacionar a API key Gemini.")
+            return
+        self.send_action_async("rotate_api_key")
 
     def on_add_model(self):
         if not self.is_backend_connected():
@@ -1241,8 +1505,10 @@ class JarvisApp(ctk.CTk):
 
         self.ensure_model_visible(normalized)
         self.model_var.set(normalized)
+        self.pending_model_change = normalized
         if not self.send_action_async("change_model", {"model": normalized}) and self.last_confirmed_model:
             self.model_var.set(self.last_confirmed_model)
+            self.pending_model_change = None
 
     def on_kill_switch(self):
         self.send_action_async("interrupt")
@@ -1253,6 +1519,8 @@ class JarvisApp(ctk.CTk):
             return
         self.send_action_async("get_models")
         self.send_action_async("get_status")
+        self.send_action_async("get_config")
+        self.send_action_async("get_api_keys")
 
     def toggle_technical_panel(self):
         if self.technical_panel_collapsed:

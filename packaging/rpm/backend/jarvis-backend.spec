@@ -30,6 +30,9 @@ install -Dm0644 packaging/systemd/jarvis-backend.service %{buildroot}%{_unitdir}
 python3 -m venv /opt/jarvis/venv || true
 /opt/jarvis/venv/bin/pip install --upgrade pip "setuptools<70.0.0"
 /opt/jarvis/venv/bin/pip install -r /opt/jarvis/backend/requirements.txt
+mkdir -p /var/lib/jarvis-mark /var/log/jarvis
+chmod 700 /var/lib/jarvis-mark || true
+chmod 750 /var/log/jarvis || true
 systemctl daemon-reload || true
 systemctl enable jarvis-backend.service || true
 systemctl restart jarvis-backend.service || systemctl start jarvis-backend.service || true
