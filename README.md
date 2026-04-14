@@ -1,85 +1,200 @@
 # Mark Alfa
 
-Este é o repositório oficial do Mark Alfa, um sistema de agente de IA local composto por:
-- **Backend (Python)**: Um servidor WebSocket que encapsula o Open Interpreter, gerenciado como um serviço `systemd`.
-- **Frontend (Python)**: Uma interface gráfica nativa em CustomTkinter que atua como cliente WebSocket para controle e visualização.
+Mark Alfa e um agente local com duas partes:
+- backend Python em daemon `systemd`, encapsulando o Open Interpreter;
+- frontend desktop em Python + CustomTkinter, falando com o backend via WebSocket/JSON.
 
-## Pré-requisitos e Dependências
+O projeto desta arvore e a finalizacao do produto instalavel em `/opt/jarvis`, sem confundir isso com o ambiente atual do agente desenvolvedor nesta maquina.
 
-A instalação via pacotes RPM/DEB lida com a cópia dos arquivos da aplicação, mas o ambiente da máquina de destino precisa ser preparado pelo operador.
+## Visao geral final
 
-### 1. Requisitos do Sistema
-- **SO**: Fedora (RPM) ou Ubuntu/Debian (DEB).
-- **Python**: Versão **3.12**. Versões mais recentes (como 3.14+) podem causar falhas de compilação em dependências críticas como o `tiktoken`.
-- **Dependências de Sistema**: `systemd`, `python3.12-venv`.
-- **Hardware**: CPU x86-64 com suporte a instruções AVX. Arquiteturas mais antigas exigirão compilação manual de dependências como `numpy`.
+- backend padrao: `gemini/gemini-3-flash-preview`
+- modelos nativos suportados:
+  - `gemini/gemini-3-flash-preview`
+  - `gemini/gemini-3.1-pro-preview-customtools`
+  - `gemini/gemini-3.1-pro-preview`
+  - `gemini/gemini-2.5-pro`
+  - `gemini/gemini-2.5-flash`
+- modelos extras: qualquer modelo Gemini informado manualmente no frontend com prefixo `gemini/`
+- credencial consumida pela aplicacao: somente `GOOGLE_API_KEY`
+- reconexao: ao reabrir o frontend com backend vivo, a sessao ativa reaparece no handshake
+- persistencia de modelos: modelos Gemini adicionados manualmente voltam na lista ao reabrir
 
-### 2. Dependências Python
-O instalador criará um ambiente virtual em `/opt/jarvis/venv` e instalará as seguintes bibliotecas via `pip`. É responsabilidade do operador garantir que o `pip` e as ferramentas de build (`gcc`, `rust`, etc.) estejam disponíveis.
+## Arquitetura preservada
+
+- backend: [src/backend/server.py](/home/francisco/Documentos/repos/mark/src/backend/server.py)
+- frontend: [src/frontend/app.py](/home/francisco/Documentos/repos/mark/src/frontend/app.py)
+- protocolo: [AgentContext/02-contrato-json-mark-alfa.md](/home/francisco/Documentos/repos/mark/AgentContext/02-contrato-json-mark-alfa.md)
+- unit file: [packaging/systemd/jarvis-backend.service](/home/francisco/Documentos/repos/mark/packaging/systemd/jarvis-backend.service)
+
+O backend e a fonte de verdade para:
+- modelo atual
+- modo atual
+- catalogo de modelos nativos e customizados
+- historico da sessao ativa
+
+## Requisitos
+
+### Sistema
+
+- Fedora para `.rpm` ou Debian/Ubuntu para `.deb`
+- Python 3.12
+- `systemd`
+- ambiente grafico para o frontend
+
+### Dependencias Python
+
+Backend: [requirements-backend.txt](/home/francisco/Documentos/repos/mark/requirements-backend.txt)
+- `open-interpreter`
 - `websockets`
 - `psutil`
-- `open-interpreter` (e suas sub-dependências como `litellm`, `google-cloud-aiplatform`)
+
+Frontend: [requirements-frontend.txt](/home/francisco/Documentos/repos/mark/requirements-frontend.txt)
 - `customtkinter`
-- `setuptools<70.0.0` (crítico para compatibilidade)
-- `numpy==1.26.4` (se compilando em hardware antigo)
+- `websockets`
 
-### 3. Configuração de Credenciais (Responsabilidade do Operador)
-O Mark Alfa **não** gerencia credenciais. Ele apenas consome variáveis de ambiente que devem ser previamente configuradas.
+Os pacotes criam ou reaproveitam `/opt/jarvis/venv` e instalam essas dependencias nele.
 
-**Opção A: Modelos via API Key (Ex: `gemini/...`)**
-- Use para modelos como `gemini/gemini-pro`.
-- A aplicação procura pela variável `GOOGLE_API_KEY`.
+## Credenciais
 
-**Opção B: Modelos via Vertex AI (Ex: `vertex_ai/...`)**
-- Use para modelos como o padrão `gemini/gemini-3.1-pro-preview` ou `vertex_ai/llama-4...`.
-- A aplicação procura por:
-  - `GOOGLE_APPLICATION_CREDENTIALS`: Caminho absoluto para o arquivo JSON da sua conta de serviço.
-  - `VERTEXAI_PROJECT`: O ID do seu projeto no Google Cloud.
-  - `VERTEXAI_LOCATION_DEFAULT`: A região padrão (opcional, fallback para `us-east5`).
+O Mark Alfa nao gerencia credenciais. O operador humano precisa deixar `GOOGLE_API_KEY` disponivel no ambiente do processo.
 
-**Como configurar para o serviço `systemd`:**
-Crie um arquivo de override para injetar as variáveis no ambiente do serviço:
+Exemplo de override do `systemd`:
+
 ```bash
-# Crie o diretório se não existir
 sudo mkdir -p /etc/systemd/system/jarvis-backend.service.d
 
-# Crie o arquivo de configuração
-sudo bash -c 'cat << EOF > /etc/systemd/system/jarvis-backend.service.d/override.conf
+sudo tee /etc/systemd/system/jarvis-backend.service.d/override.conf >/dev/null <<'EOF'
 [Service]
 Environment="GOOGLE_API_KEY=SUA_CHAVE_AQUI"
-Environment="GOOGLE_APPLICATION_CREDENTIALS=/caminho/para/seu/arquivo.json"
-Environment="VERTEXAI_PROJECT=seu-projeto-gcp"
-Environment="VERTEXAI_LOCATION_DEFAULT=us-east5"
-EOF'
+EOF
 
-# Recarregue o systemd
 sudo systemctl daemon-reload
+sudo systemctl restart jarvis-backend.service
 ```
 
-## Instalação e Uso
+## Contexto operacional
 
-### 1. Instalação via Pacotes
-- **Localize os pacotes `.rpm` ou `.deb`** gerados na raiz do repositório.
-- **Instale** usando o gerenciador de pacotes do seu sistema:
-  - Fedora: `sudo rpm -ivh jarvis-backend-*.rpm && sudo rpm -ivh jarvis-frontend-*.rpm --nodeps`
-  - Ubuntu/Debian: `sudo dpkg -i jarvis-backend-*.deb && sudo dpkg -i jarvis-frontend-*.deb`
-  (Nota: pode ser necessário `sudo apt-get install -f` para resolver dependências como `python3-tk`).
+Codigo instalavel:
+- `/opt/jarvis/backend`
+- `/opt/jarvis/frontend`
+- `/opt/jarvis/venv`
 
-### 2. Pós-Instalação
-- **Backend**: O serviço `jarvis-backend` será habilitado para iniciar no boot. Controle-o com:
-  - `sudo systemctl start jarvis-backend`
-  - `sudo systemctl stop jarvis-backend`
-  - `sudo systemctl status jarvis-backend`
-  - `sudo journalctl -u jarvis-backend -f` (para ver os logs em tempo real)
-- **Frontend**: Um launcher "Mark Alfa" será criado no seu menu de aplicativos.
+Contexto dinamico do runtime:
+- primeiro `~/Documents/JarvisMark`
+- senao `~/Documentos/JarvisMark`
+- fallback: `~/JarvisMark`
+- override opcional: `MARK_BASE_DIR=/caminho/desejado`
 
-### 3. Funcionalidades da Interface
-- **Seleção de Modelo**: Escolha um dos modelos pré-configurados ou selecione "Customizado" para digitar um ID de modelo do LiteLLM.
-- **Seleção de Região**: Escolha uma região ou selecione "Customizada" para usar uma diferente. A mudança é aplicada em tempo real (hotswap).
+Arquivos principais do contexto:
+- `estado/config.json`
+- `estado/session.json`
+- `logs/backend.log`
+- `logs/change.log`
+- `memoria/MemoriaDoJarvis.log`
 
-## Política de Diretórios e Contexto
-- **Diretório de Instalação**: A aplicação é instalada em `/opt/jarvis/` (backend, frontend e venv).
-- **Contexto Dinâmico**: Os arquivos de execução (logs, `config.json`) são salvos dinamicamente no diretório do usuário que executa o processo (para o backend, será o usuário `root` se não for alterado no `override.conf`). O caminho padrão é `~/Documents/JarvisMark`.
+## Instalacao por pacote
 
-## Referência do Agente Desenvolvedor
-O agente (Jarvis) que desenvolveu este projeto opera em um ambiente separado em `/home/francisco/Documentos/JarvisMinion`, seguindo as regras de seu próprio arquivo de constituição (`~/jarvis_rules.txt`). Esta é uma referência do ambiente de desenvolvimento e não um requisito para o produto Mark Alfa.
+### RPM
+
+Gere os pacotes:
+
+```bash
+./build_rpm.sh
+```
+
+Instale:
+
+```bash
+sudo rpm -Uvh ./jarvis-backend-1.0.0-*.rpm ./jarvis-frontend-1.0.0-*.rpm
+```
+
+### DEB
+
+Os arquivos de controle e scripts de pos-instalacao estao em:
+- [packaging/deb/backend/control](/home/francisco/Documentos/repos/mark/packaging/deb/backend/control)
+- [packaging/deb/backend/postinst](/home/francisco/Documentos/repos/mark/packaging/deb/backend/postinst)
+- [packaging/deb/frontend/control](/home/francisco/Documentos/repos/mark/packaging/deb/frontend/control)
+- [packaging/deb/frontend/postinst](/home/francisco/Documentos/repos/mark/packaging/deb/frontend/postinst)
+
+Instalacao esperada:
+
+```bash
+sudo dpkg -i ./jarvis-backend_*.deb ./jarvis-frontend_*.deb
+```
+
+## Backend via systemd
+
+Comandos principais:
+
+```bash
+sudo systemctl start jarvis-backend
+sudo systemctl stop jarvis-backend
+sudo systemctl restart jarvis-backend
+sudo systemctl status jarvis-backend
+sudo journalctl -u jarvis-backend -f
+```
+
+## Frontend e launcher
+
+O launcher grafico instalado e [packaging/frontend/desktop/mark-alfa.desktop](/home/francisco/Documentos/repos/mark/packaging/frontend/desktop/mark-alfa.desktop).
+
+Com o pacote instalado, o frontend abre por:
+- menu de aplicativos: `Mark Alfa`
+- ou manualmente: `/opt/jarvis/venv/bin/python /opt/jarvis/frontend/app.py`
+
+## Uso local sem instalar
+
+Backend:
+
+```bash
+./scripts/run_backend_local.sh
+```
+
+Frontend:
+
+```bash
+./scripts/run_frontend_local.sh
+```
+
+Esses scripts preferem `/opt/jarvis/venv/bin/python` quando ele ja existe.
+
+## Comportamento final da sessao
+
+### Recuperacao de sessao
+
+O backend salva a sessao ativa em `estado/session.json`.
+Ao conectar ou reconectar, o frontend recebe:
+- estado atual
+- catalogo de modelos
+- historico da sessao ativa
+
+Se o frontend for fechado e aberto de novo enquanto o backend continua vivo, a conversa reaparece sem perder continuidade.
+
+### Persistencia de modelos customizados
+
+Modelos Gemini adicionados manualmente no frontend:
+- sao validados pelo backend como `gemini/...`
+- entram em `custom_models` no `config.json`
+- reaparecem na lista do frontend no proximo handshake
+
+## Troubleshooting
+
+- backend nao sobe:
+  - confirme `GOOGLE_API_KEY`
+  - confira `sudo systemctl status jarvis-backend`
+  - confira `sudo journalctl -u jarvis-backend -n 100`
+- frontend abre sem conectar:
+  - confirme que o backend esta em `ws://127.0.0.1:8765`
+  - clique em `Sincronizar` ou reinicie o backend
+- modelo customizado nao aparece:
+  - use prefixo `gemini/`
+  - verifique `estado/config.json`
+- historico nao voltou:
+  - confirme que o backend nao foi reiniciado entre o fechamento e a reabertura do frontend
+  - verifique `estado/session.json`
+
+## Ambiente atual do desenvolvedor x produto instalavel
+
+Este repositorio trata do produto Mark Alfa instalavel.
+O ambiente atual do agente desenvolvedor nesta maquina continua separado e pode citar `~/jarvis_rules.txt` ou `JarvisMinion`, mas isso e apenas referencia do ambiente do agente, nao requisito do produto distribuivel.

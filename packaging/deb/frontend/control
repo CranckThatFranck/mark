@@ -2,6 +2,6 @@ Package: jarvis-frontend
 Version: 1.0.0
 Architecture: all
 Maintainer: Gaia Works
-Depends: python3, python3-customtkinter
-Description: Mark Alfa Frontend (UI)
- Interface gráfica do Mark Alfa.
+Depends: python3, python3-venv, python3-tk
+Description: Mark Alfa desktop frontend
+ Interface grafica em CustomTkinter para o Mark Alfa.

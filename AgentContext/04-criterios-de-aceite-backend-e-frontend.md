@@ -201,38 +201,42 @@ Não aceito quando:
 ### 2.2 Conexão com backend
 Aceito quando:
 - o frontend consegue conectar em `localhost`
-- o frontend consegue conectar em IP remoto autorizado
 - o frontend informa claramente conectado, desconectado e reconectando
 - o frontend se recupera de perda temporária de conexão
+- ao reconectar com backend ainda vivo, a sessão ativa reaparece
 
 Não aceito quando:
 - a conexão falha silenciosamente
 - o usuário não entende em que estado a conexão está
+- a reconexão volta com tela vazia apesar do backend ainda ter histórico
 
 ### 2.3 Tela principal
 Aceito quando:
 - existe chat funcional
 - existe seletor de modo Plan/Agent
 - existe kill switch acessível
-- existe seletor de modelo
+- existe seletor de modelo alimentado pelo backend
 - existe exibição de mensagens do agente
 - existe exibição de trechos de código e console quando enviados pelo backend
+- a conversa principal é visualmente dominante sobre o fluxo técnico
+- mensagens do usuário, respostas do agente, status/sistema, código e console são distinguíveis
 
 Não aceito quando:
 - a tela principal não permite operar o agente
 - o stream do backend é perdido ou escondido sem justificativa
+- tudo parece o mesmo bloco visual
 
-### 2.4 Tela de configurações
+### 2.4 Sincronização e catálogo de modelos
 Aceito quando:
-- existe campo para IP do master
-- existe campo para IP do backend alvo
-- existe configuração persistente do nome do agente
-- existe listagem ou gestão básica de modelos disponíveis, conforme escopo implementado
-- existe ação de desligamento gracioso do backend, se essa funcionalidade já estiver ativa no contrato
+- a lista final de modelos nativos suportados vem do backend
+- modelos Gemini adicionados manualmente reaparecem após fechar e abrir o frontend
+- não existe seleção operacional geográfica legada
+- a UI não inventa estado local diferente do backend
 
 Não aceito quando:
-- configurações somem ao reiniciar sem motivo
-- o frontend salva estado local incoerente com o backend
+- a lista visível no frontend diverge do catálogo real do backend
+- modelos adicionados somem sem reiniciar o backend
+- a interface continua exibindo seleção geográfica legada
 
 ### 2.5 Fluxo Plan/Agent
 Aceito quando:
@@ -261,10 +265,12 @@ Aceito quando:
 - o usuário consegue solicitar mudança de modelo sem reiniciar a aplicação
 - a UI exibe o modelo atual após troca
 - a troca respeita a lista oficial de modelos disponíveis
+- o backend inicia em `gemini/gemini-3-flash-preview`
 
 Não aceito quando:
 - a troca exige reiniciar tudo
 - a UI mostra modelo diferente do backend
+- a UI aceita opções operacionais fora do catálogo Gemini suportado
 
 ### 2.8 Robustez visual e operacional
 Aceito quando:
@@ -308,6 +314,8 @@ Aceito quando:
 - interrupt funciona
 - reconexão funciona
 - configuração persistida continua correta após reinício
+- o histórico da sessão reaparece ao reabrir o frontend com backend vivo
+- modelos Gemini customizados persistem no catálogo
 
 Não aceito quando:
 - integração depende de ações manuais não documentadas

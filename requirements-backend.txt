@@ -1,0 +1,4 @@
+setuptools<70.0.0
+websockets>=15,<16
+psutil>=5.9,<8
+open-interpreter
