@@ -136,6 +136,13 @@ async def smoke_test():
         assert action_response["action"] == "execute_task"
         assert action_response["success"] is True
 
+        print("Abrindo segunda conexao enquanto a tarefa esta em andamento...")
+        secondary = await websockets.connect(uri)
+        secondary_sync = json.loads(await asyncio.wait_for(secondary.recv(), timeout=5.0))
+        assert secondary_sync["type"] == "sync_state"
+        await secondary.close()
+        print("Backend aceitou nova conexao durante execucao do agente.")
+
         seen_user_prompt = False
         for _ in range(60):
             incoming = json.loads(await asyncio.wait_for(websocket.recv(), timeout=10.0))

@@ -16,6 +16,9 @@ from ws_client import JarvisWSClient
 ADD_MODEL_LABEL = "Adicionar Gemini..."
 USER_MESSAGE_TYPES = {"user", "message"}
 MERGEABLE_TECHNICAL_TYPES = {"code", "console"}
+AUTO_SCROLL_THRESHOLD = 0.04
+INPUT_MIN_LINES = 2
+INPUT_MAX_LINES = 8
 TECHNICAL_HEADERS = {
     "status": "Status",
     "system": "Sistema",
@@ -80,6 +83,10 @@ class JarvisApp(ctk.CTk):
         self._technical_restore_requested = False
         self._sash_initialized = False
         self._last_connection_notice = None
+        self._closing_ui = False
+        self._poll_after_id = None
+        self._sash_after_id = None
+        self._input_resize_after_id = None
 
         self.build_sidebar()
         self.build_main_area()
@@ -88,7 +95,7 @@ class JarvisApp(ctk.CTk):
         self.bind("<Control-Shift-R>", lambda _event: self.open_rules_target())
         self.bind("<Control-Shift-T>", lambda _event: self.toggle_technical_panel())
         self.protocol("WM_DELETE_WINDOW", self.on_close)
-        self.after(50, self.poll_ui_queue)
+        self._poll_after_id = self.after(50, self.poll_ui_queue)
 
     def build_sidebar(self):
         self.sidebar_frame = ctk.CTkFrame(self, width=260, corner_radius=0, fg_color="#171a1c")
@@ -321,13 +328,52 @@ class JarvisApp(ctk.CTk):
         self.input_frame.grid(row=2, column=0, padx=18, pady=(14, 18), sticky="ew")
         self.input_frame.grid_columnconfigure(0, weight=1)
 
-        self.input_entry = ctk.CTkEntry(
+        self.input_editor_frame = ctk.CTkFrame(
             self.input_frame,
-            placeholder_text="Digite uma tarefa ou mensagem para o Mark...",
-            height=40,
+            corner_radius=6,
+            fg_color="#14181c",
+            border_width=1,
+            border_color="#273038",
         )
-        self.input_entry.grid(row=0, column=0, padx=(0, 10), sticky="ew")
-        self.input_entry.bind("<Return>", lambda _event: self.on_send())
+        self.input_editor_frame.grid(row=0, column=0, padx=(0, 10), sticky="ew")
+        self.input_editor_frame.grid_columnconfigure(0, weight=1)
+        self.input_editor_frame.grid_rowconfigure(0, weight=1)
+
+        self.input_text = tk.Text(
+            self.input_editor_frame,
+            height=INPUT_MIN_LINES,
+            wrap="word",
+            relief="flat",
+            bd=0,
+            highlightthickness=0,
+            bg="#14181c",
+            fg="#f4fbf9",
+            insertbackground="#f4fbf9",
+            selectbackground="#34536a",
+            selectforeground="#ffffff",
+            undo=True,
+            padx=12,
+            pady=10,
+        )
+        input_font = tkfont.nametofont("TkDefaultFont").copy()
+        input_font.configure(size=13)
+        self.input_text.configure(font=input_font)
+        self.input_text.grid(row=0, column=0, sticky="nsew")
+        self.input_text.bind("<Return>", self.on_input_return)
+        self.input_text.bind("<KP_Enter>", self.on_input_return)
+        self.input_text.bind("<Shift-Return>", self.on_input_shift_return)
+        self.input_text.bind("<Shift-KP_Enter>", self.on_input_shift_return)
+        self.input_text.bind("<<Modified>>", self.on_input_modified)
+        self.input_text.edit_modified(False)
+
+        self.input_placeholder = ctk.CTkLabel(
+            self.input_editor_frame,
+            text="Digite uma tarefa ou mensagem para o Mark...",
+            anchor="w",
+            text_color="#74808a",
+        )
+        self.input_placeholder.place(x=14, y=11)
+        self.input_placeholder.bind("<Button-1>", lambda _event: self.focus_input())
 
         self.send_btn = ctk.CTkButton(
             self.input_frame,
@@ -339,11 +385,15 @@ class JarvisApp(ctk.CTk):
         )
         self.send_btn.grid(row=0, column=1)
 
-        self.after(150, self.position_initial_sash)
+        self.schedule_input_resize()
+        self._sash_after_id = self.after(150, self.position_initial_sash)
 
     def on_window_resize(self, _event=None):
         if not self.technical_panel_collapsed and self._technical_restore_requested:
-            self.after(100, self.position_initial_sash)
+            if self._sash_after_id:
+                self.after_cancel(self._sash_after_id)
+            self._sash_after_id = self.after(100, self.position_initial_sash)
+        self.schedule_input_resize()
 
     def position_initial_sash(self):
         if self.technical_panel_collapsed:
@@ -381,6 +431,16 @@ class JarvisApp(ctk.CTk):
         threading.Thread(target=self.run_async_loop, daemon=True).start()
 
     def on_close(self):
+        self._closing_ui = True
+        for after_id in (self._poll_after_id, self._sash_after_id, self._input_resize_after_id):
+            if after_id:
+                try:
+                    self.after_cancel(after_id)
+                except Exception:
+                    pass
+        self._poll_after_id = None
+        self._sash_after_id = None
+        self._input_resize_after_id = None
         if self.async_loop and self.ws_client:
             try:
                 close_future = asyncio.run_coroutine_threadsafe(self.ws_client.close(), self.async_loop)
@@ -394,9 +454,13 @@ class JarvisApp(ctk.CTk):
         self.destroy()
 
     def handle_ws_message(self, data):
+        if self._closing_ui:
+            return
         self.message_queue.put(data)
 
     def poll_ui_queue(self):
+        if self._closing_ui or not self.winfo_exists():
+            return
         try:
             while True:
                 payload = self.message_queue.get_nowait()
@@ -405,9 +469,11 @@ class JarvisApp(ctk.CTk):
             pass
 
         if self.winfo_exists():
-            self.after(50, self.poll_ui_queue)
+            self._poll_after_id = self.after(50, self.poll_ui_queue)
 
     def process_ws_message(self, data):
+        if self._closing_ui:
+            return
         message_type = data.get("type")
 
         if message_type == "connection_status":
@@ -435,7 +501,73 @@ class JarvisApp(ctk.CTk):
         if message_type == "action_response":
             self.handle_action_response(data)
 
+    def focus_input(self):
+        try:
+            self.input_text.focus_set()
+        except Exception:
+            pass
+
+    def get_input_text(self):
+        return self.input_text.get("1.0", "end-1c")
+
+    def clear_input_text(self):
+        self.input_text.delete("1.0", "end")
+        self.schedule_input_resize()
+        self.update_input_placeholder()
+
+    def update_input_placeholder(self):
+        has_content = bool(self.get_input_text().strip())
+        if has_content:
+            self.input_placeholder.place_forget()
+        else:
+            self.input_placeholder.place(x=14, y=11)
+
+    def schedule_input_resize(self):
+        if self._closing_ui:
+            return
+        if self._input_resize_after_id:
+            try:
+                self.after_cancel(self._input_resize_after_id)
+            except Exception:
+                pass
+        self._input_resize_after_id = self.after(20, self.update_input_height)
+
+    def update_input_height(self):
+        self._input_resize_after_id = None
+        if self._closing_ui or not self.winfo_exists():
+            return
+        try:
+            display_lines = int(self.input_text.count("1.0", "end-1c", "displaylines")[0])
+        except Exception:
+            content = self.get_input_text()
+            display_lines = content.count("\n") + 1 if content else INPUT_MIN_LINES
+        target_lines = max(INPUT_MIN_LINES, min(INPUT_MAX_LINES, display_lines or INPUT_MIN_LINES))
+        self.input_text.configure(height=target_lines)
+        self.input_editor_frame.configure(height=max(44, target_lines * 22))
+        self.update_input_placeholder()
+
+    def on_input_modified(self, _event=None):
+        try:
+            self.input_text.edit_modified(False)
+        except Exception:
+            pass
+        self.schedule_input_resize()
+
+    def on_input_shift_return(self, _event=None):
+        self.input_text.insert("insert", "\n")
+        self.schedule_input_resize()
+        return "break"
+
+    def on_input_return(self, event=None):
+        state = getattr(event, "state", 0)
+        if state & 0x1:
+            return self.on_input_shift_return(event)
+        self.on_send()
+        return "break"
+
     def apply_connection_status(self, payload):
+        if self._closing_ui:
+            return
         status = payload.get("status", "disconnected") if isinstance(payload, dict) else str(payload)
         detail = payload.get("detail", "") if isinstance(payload, dict) else ""
         recovered = bool(payload.get("recovered")) if isinstance(payload, dict) else False
@@ -454,7 +586,7 @@ class JarvisApp(ctk.CTk):
 
         self.send_btn.configure(state="normal" if status == "connected" else "disabled")
         if status != "connected":
-            self.input_entry.configure(state="normal")
+            self.set_input_enabled(True)
 
         notice_key = (status, detail, attempt)
         if notice_key == self._last_connection_notice:
@@ -481,6 +613,15 @@ class JarvisApp(ctk.CTk):
 
         self._last_connection_notice = notice_key
 
+    def set_input_enabled(self, enabled: bool):
+        desired_state = "normal" if enabled else "disabled"
+        if str(self.input_text.cget("state")) != desired_state:
+            self.input_text.configure(state=desired_state)
+        if enabled:
+            self.update_input_placeholder()
+        else:
+            self.input_placeholder.place_forget()
+
     def apply_state(self, state):
         self.last_confirmed_mode = state.get("mode", "agent")
         self.mode_var.set(self.last_confirmed_mode)
@@ -499,14 +640,14 @@ class JarvisApp(ctk.CTk):
         active_task = state.get("active_task")
         if status == "running":
             self.send_btn.configure(state="disabled")
-            self.input_entry.configure(state="disabled")
+            self.set_input_enabled(False)
             if active_task:
                 self.session_status.configure(text=f"Executando: {self.truncate_text(active_task, 140)}")
             else:
                 self.session_status.configure(text="Executando tarefa em andamento")
         else:
             self.send_btn.configure(state="normal" if self.connection_status == "connected" else "disabled")
-            self.input_entry.configure(state="normal")
+            self.set_input_enabled(True)
             base_text = f"Modelo ativo: {current_model or 'aguardando sincronizacao'}"
             if self.connection_status in {"reconnecting", "unavailable"} and self.connection_detail:
                 base_text = f"{base_text} | Transporte: {self.connection_detail}"
@@ -595,8 +736,8 @@ class JarvisApp(ctk.CTk):
                 timestamp=item.get("timestamp"),
                 merge_if_possible=True,
             )
-        self.scroll_conversation_to_bottom()
-        self.scroll_technical_to_bottom()
+        self.scroll_conversation_to_bottom(force=True)
+        self.scroll_technical_to_bottom(force=True)
 
     def append_stream_entry(self, message_type, content, timestamp=None, merge_if_possible=True):
         if content is None:
@@ -622,6 +763,7 @@ class JarvisApp(ctk.CTk):
 
     def append_conversation_entry(self, message_type, content, timestamp=None, merge_if_possible=True):
         content = str(content)
+        should_follow = self.should_follow_scroll(self.conversation_frame)
         timestamp_label = self.format_timestamp(timestamp or self.local_timestamp())
         if (
             merge_if_possible
@@ -630,7 +772,7 @@ class JarvisApp(ctk.CTk):
         ):
             self.last_conversation_block["content"] += content
             self.update_text_widget(self.last_conversation_block["textbox"], self.last_conversation_block["content"])
-            self.scroll_conversation_to_bottom()
+            self.scroll_conversation_to_bottom(force=should_follow)
             return
 
         is_user = message_type == "user"
@@ -707,7 +849,7 @@ class JarvisApp(ctk.CTk):
         self.conversation_blocks.append(block)
         self.last_conversation_block = block
 
-        self.scroll_conversation_to_bottom()
+        self.scroll_conversation_to_bottom(force=should_follow)
 
     def append_technical_entry(self, message_type, content, timestamp=None, merge_if_possible=True):
         if content is None:
@@ -716,6 +858,7 @@ class JarvisApp(ctk.CTk):
         if not content:
             return
 
+        should_follow = self.should_follow_scroll(self.technical_frame)
         effective_type = message_type if message_type in TECHNICAL_HEADERS else "system"
         timestamp_label = self.format_timestamp(timestamp or self.local_timestamp())
 
@@ -727,7 +870,7 @@ class JarvisApp(ctk.CTk):
         ):
             self.last_technical_block["content"] += content
             self.update_text_widget(self.last_technical_block["textbox"], self.last_technical_block["content"])
-            self.scroll_technical_to_bottom()
+            self.scroll_technical_to_bottom(force=should_follow)
             return
 
         colors = {
@@ -802,7 +945,7 @@ class JarvisApp(ctk.CTk):
         copy_btn.configure(command=lambda block_ref=block: self.copy_to_clipboard(block_ref["content"]))
         self.technical_blocks.append(block)
         self.last_technical_block = block
-        self.scroll_technical_to_bottom()
+        self.scroll_technical_to_bottom(force=should_follow)
 
     def create_text_widget(self, parent, content, foreground, background, font_size, monospace=False):
         text_widget = tk.Text(
@@ -844,17 +987,46 @@ class JarvisApp(ctk.CTk):
         wrap_bonus = max(0, len(content) // 90)
         return max(2, min(18, lines + wrap_bonus))
 
-    def scroll_conversation_to_bottom(self):
+    def get_scroll_canvas(self, scrollable_frame):
+        return getattr(scrollable_frame, "_parent_canvas", None)
+
+    def should_follow_scroll(self, scrollable_frame):
+        canvas = self.get_scroll_canvas(scrollable_frame)
+        if canvas is None:
+            return True
         try:
-            self.conversation_frame._parent_canvas.yview_moveto(1.0)
+            _, end = canvas.yview()
+        except Exception:
+            return True
+        return end >= 1.0 - AUTO_SCROLL_THRESHOLD
+
+    def scroll_conversation_to_bottom(self, force=True):
+        if not force:
+            return
+        try:
+            canvas = self.get_scroll_canvas(self.conversation_frame)
+            if canvas is not None:
+                canvas.update_idletasks()
+                canvas.yview_moveto(1.0)
         except Exception:
             pass
 
-    def scroll_technical_to_bottom(self):
+    def scroll_technical_to_bottom(self, force=True):
+        if not force:
+            return
         try:
-            self.technical_frame._parent_canvas.yview_moveto(1.0)
+            canvas = self.get_scroll_canvas(self.technical_frame)
+            if canvas is not None:
+                canvas.update_idletasks()
+                canvas.yview_moveto(1.0)
         except Exception:
             pass
+
+    def is_conversation_at_bottom(self):
+        return self.should_follow_scroll(self.conversation_frame)
+
+    def is_technical_at_bottom(self):
+        return self.should_follow_scroll(self.technical_frame)
 
     def is_backend_connected(self):
         return bool(self.async_loop and self.ws_client and self.ws_client.connected)
@@ -880,11 +1052,11 @@ class JarvisApp(ctk.CTk):
         return False
 
     def on_send(self):
-        prompt = self.input_entry.get().strip()
+        prompt = self.get_input_text().strip()
         if not prompt:
             return
         if self.send_action_async("execute_task", {"prompt": prompt}):
-            self.input_entry.delete(0, "end")
+            self.clear_input_text()
 
     def on_mode_change(self, value):
         if not self.send_action_async("change_mode", {"mode": value}):

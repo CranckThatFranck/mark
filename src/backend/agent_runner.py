@@ -1,5 +1,7 @@
+import asyncio
 import logging
 import os
+import threading
 
 from interpreter import interpreter
 
@@ -46,6 +48,30 @@ class AgentRunner:
                 "mas a execucao do agente vai falhar ate a chave ser configurada."
             )
 
+    async def _stream_chat_chunks(self, prompt: str):
+        loop = asyncio.get_running_loop()
+        queue = asyncio.Queue()
+
+        def worker():
+            try:
+                for chunk in self.interpreter.chat(prompt, stream=True, display=False):
+                    loop.call_soon_threadsafe(queue.put_nowait, ("chunk", chunk))
+            except Exception as exc:
+                loop.call_soon_threadsafe(queue.put_nowait, ("error", exc))
+            finally:
+                loop.call_soon_threadsafe(queue.put_nowait, ("done", None))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+        while True:
+            item_type, payload = await queue.get()
+            if item_type == "chunk":
+                yield payload
+                continue
+            if item_type == "error":
+                raise payload
+            break
+
     async def run_task(self, prompt: str, mode: str):
         try:
             self.set_status("running", prompt)
@@ -63,7 +89,7 @@ class AgentRunner:
             else:
                 await self.send_stream("status", "Executando em modo agent...")
 
-            for chunk in self.interpreter.chat(final_prompt, stream=True, display=False):
+            async for chunk in self._stream_chat_chunks(final_prompt):
                 if isinstance(chunk, dict) and "content" in chunk:
                     content_type = chunk.get("type", "message")
                     if content_type in {"message", "code", "console"}:
