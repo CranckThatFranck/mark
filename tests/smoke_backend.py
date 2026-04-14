@@ -13,6 +13,7 @@ EXPECTED_BUILTIN_MODELS = [
     "gemini/gemini-2.5-flash",
 ]
 CUSTOM_MODEL = "gemini/gemini-2.5-flash-exp"
+EXECUTION_MODEL = "gemini/gemini-2.5-flash"
 PROMPT = "Responda apenas com a palavra teste."
 
 
@@ -93,6 +94,22 @@ async def smoke_test():
         assert any(CUSTOM_MODEL in item.get("data", {}).get("models", {}).get("custom", []) for item in replies if item["type"] == "action_response")
         print("Modelo customizado persistido no catalogo.")
 
+        print("Voltando para um Gemini nativo antes da execucao...")
+        await websocket.send(
+            json.dumps(
+                {
+                    "action": "change_model",
+                    "payload": {"model": EXECUTION_MODEL},
+                }
+            )
+        )
+        replies = [
+            json.loads(await asyncio.wait_for(websocket.recv(), timeout=5.0)),
+            json.loads(await asyncio.wait_for(websocket.recv(), timeout=5.0)),
+        ]
+        assert any(item["type"] == "sync_state" and item["state"]["model"] == EXECUTION_MODEL for item in replies)
+        print("Modelo nativo restaurado para a execucao.")
+
         print("Gerando historico de sessao para validar reconexao...")
         await websocket.send(
             json.dumps(
@@ -121,7 +138,7 @@ async def smoke_test():
         websocket = await websockets.connect(uri)
         sync_data = json.loads(await asyncio.wait_for(websocket.recv(), timeout=5.0))
         assert sync_data["type"] == "sync_state"
-        assert sync_data["state"]["model"] == CUSTOM_MODEL
+        assert sync_data["state"]["model"] == EXECUTION_MODEL
         assert CUSTOM_MODEL in sync_data["models"]["custom"]
         assert any(item["message_type"] == "user" and PROMPT in item["content"] for item in sync_data.get("history", []))
         print("Historico e modelo customizado retornaram no handshake.")
