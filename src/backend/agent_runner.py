@@ -1,103 +1,78 @@
-import asyncio
-import sys
 import logging
 import os
-import pty
+
 from interpreter import interpreter
 
+from config import DEFAULT_MODEL, LEGACY_ENV_KEYS, is_supported_model
+
+
 logger = logging.getLogger(__name__)
+
 
 class AgentRunner:
     """
     Invólucro controlado para executar o Open Interpreter.
-    Garante que o motor use a versão instalada no ambiente atual e não rode
-    descontroladamente como CLI de terminal.
     """
-    
+
     def __init__(self, send_stream_cb, set_status_cb):
-        # Callbacks para comunicação com o websocket
         self.send_stream = send_stream_cb
         self.set_status = set_status_cb
         self.interpreter = interpreter
         self._configure_interpreter()
 
     def _configure_interpreter(self):
-        """Configurações básicas seguras do interpreter"""
         self.interpreter.auto_run = True
-        self.interpreter.llm.model = "gemini-2.5-flash" # default start
-        # Podemos adicionar limits aqui
+        self.update_model(DEFAULT_MODEL)
 
-    def update_model(self, new_model: str, region: str = None):
-        """
-        Atualiza o modelo de LLM e as variáveis de ambiente necessárias para o LiteLLM.
-        """
+    def _clear_legacy_provider_environment(self):
+        for env_key in LEGACY_ENV_KEYS:
+            os.environ.pop(env_key, None)
+
+    def update_model(self, new_model: str):
+        if not is_supported_model(new_model):
+            raise ValueError("Apenas modelos Gemini com prefixo gemini/ sao suportados")
+
+        self._clear_legacy_provider_environment()
         self.interpreter.llm.model = new_model
-        
-        # Limpa variáveis de ambiente do Vertex para garantir que não haja conflito
-        # ao usar modelos que dependem de GOOGLE_API_KEY
-        if "VERTEX_LOCATION" in os.environ:
-            del os.environ["VERTEX_LOCATION"]
-        if "VERTEXAI_LOCATION" in os.environ:
-            del os.environ["VERTEXAI_LOCATION"]
 
-        if "vertex_ai" in new_model:
-            # Puxa a região do argumento ou do ambiente, com fallback
-            final_region = region if region else os.environ.get("VERTEXAI_LOCATION_DEFAULT", "us-east5")
-            os.environ["VERTEXAI_LOCATION"] = final_region
-            # O operador é responsável por ter GOOGLE_APPLICATION_CREDENTIALS e VERTEXAI_PROJECT no ambiente
-            logger.info(f"Modelo Vertex AI selecionado. Usando região: {final_region}")
+        if os.environ.get("GOOGLE_API_KEY"):
+            logger.info(f"Modelo do Open Interpreter atualizado para: {new_model}")
         else:
-            logger.info(f"Modelo não-Vertex AI selecionado. Usando GOOGLE_API_KEY (se disponível).")
-
-        logger.info(f"Modelo do Open Interpreter atualizado para: {new_model}")
-
-
+            logger.warning(
+                "GOOGLE_API_KEY nao encontrado no ambiente. O backend inicia, "
+                "mas a execucao do agente vai falhar ate a chave ser configurada."
+            )
 
     async def run_task(self, prompt: str, mode: str):
-        """
-        Executa a tarefa no interpreter considerando o modo Plan vs Agent.
-        """
         try:
             self.set_status("running", prompt)
-            
             await self.send_stream("user", prompt)
-            
-            # Formata prompt baseado no modo
+
             final_prompt = prompt
             if mode == "plan":
                 final_prompt = (
-                    "Você está no modo PLAN (Planejamento de escopo). "
-                    "Seu objetivo não é executar código ainda, mas sim descrever o plano de ação, "
-                    "etapas, checagens de segurança e arquivos envolvidos. "
-                    "Mostre o plano formatado em Markdown e pergunte se pode executar. "
-                    "Ignorar essa regra é uma violação do contrato operacional. "
-                    f"A tarefa é: {prompt}"
+                    "Voce esta no modo PLAN. Seu objetivo nao e executar codigo ainda, "
+                    "mas descrever o plano de acao, checagens de seguranca e arquivos envolvidos. "
+                    "Mostre o plano em Markdown e pergunte se pode executar. "
+                    f"A tarefa e: {prompt}"
                 )
-                await self.send_stream("status", "Analisando contexto no modo Plan...")
+                await self.send_stream("status", "Analisando contexto no modo plan...")
             else:
-                await self.send_stream("status", "Executando em modo Agent...")
+                await self.send_stream("status", "Executando em modo agent...")
 
             for chunk in self.interpreter.chat(final_prompt, stream=True, display=False):
                 if isinstance(chunk, dict) and "content" in chunk:
-                    ctype = chunk.get("type", "message")
-                    # O OI usa "message" (fala da IA), "code" (código executado), "console" (saída)
-                    if ctype in ["message", "code", "console"]:
-                        await self.send_stream(ctype, chunk["content"])
-                        
-            # Quando a execução finaliza
-            
-            # Retorno automático para Agent se estiver em Plan (conforme contrato de que plano finalizado volta pra execução)
+                    content_type = chunk.get("type", "message")
+                    if content_type in {"message", "code", "console"}:
+                        await self.send_stream(content_type, chunk["content"])
+
             if mode == "plan":
-                # Sinaliza ao servidor que deve mudar o estado globalmente
-                # Para evitar dependência circular aqui, enviaremos um stream system
                 await self.send_stream("system", "MODO_PLAN_CONCLUIDO")
-                
-            self.set_status("idle", None)
-            await self.send_stream("status", "Tarefa concluída.")
-            
-        except Exception as e:
-            logger.error(f"Erro na execução da tarefa: {e}")
-            self.set_status("idle", None)
-            await self.send_stream("status", f"Erro: {str(e)}")
 
+            self.set_status("idle", None)
+            await self.send_stream("status", "Tarefa concluida.")
 
+        except Exception as exc:
+            logger.error(f"Erro na execucao da tarefa: {exc}")
+            self.set_status("idle", None)
+            await self.send_stream("status", f"Erro: {str(exc)}")

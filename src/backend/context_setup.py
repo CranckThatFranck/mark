@@ -1,31 +1,36 @@
-import os
-import shutil
-from pathlib import Path
-from config import BASE_DIR
+from config import (
+    BACKEND_LOG,
+    BASE_DIR,
+    CHANGE_LOG,
+    CONFIG_FILE,
+    CONTEXTS_DIR,
+    MEMORY_LOG,
+    SESSION_FILE,
+    STATE_DIR,
+    TRASH_DIR,
+)
+
+
+def _touch_text_file(path, initial_content: str):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        path.write_text(initial_content, encoding="utf-8")
+
 
 def prepare_context_structure():
-    """
-    Garante que a estrutura mínima do contexto do Jarvis exista no ambiente onde o backend vai rodar.
-    Cria a pasta base, os logs de memória se não existirem, e a pasta lixo.
-    """
-    # Garante o diretório principal
+    """Garante a estrutura minima de contexto operacional do Mark."""
     BASE_DIR.mkdir(parents=True, exist_ok=True)
-    
-    # Garante os diretórios internos
-    lixo_dir = BASE_DIR / "lixo"
-    lixo_dir.mkdir(exist_ok=True)
-    
-    contextos_dir = BASE_DIR / "contextos"
-    contextos_dir.mkdir(exist_ok=True)
-    
-    # Garante os logs base
-    memoria_log = BASE_DIR / "MemoriaDoJarvis.log"
-    if not memoria_log.exists():
-        memoria_log.write_text("=== Início do Log de Memória do Jarvis ===\n")
-        
-    change_log = BASE_DIR / "change.log"
-    if not change_log.exists():
-        change_log.write_text("=== Início do Log de Alterações ===\n")
+    CONTEXTS_DIR.mkdir(parents=True, exist_ok=True)
+    TRASH_DIR.mkdir(parents=True, exist_ok=True)
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+
+    _touch_text_file(MEMORY_LOG, "=== Inicio do Log de Memoria do Mark ===\n")
+    _touch_text_file(CHANGE_LOG, "=== Inicio do Log de Alteracoes do Mark ===\n")
+    _touch_text_file(BACKEND_LOG, "")
+
+    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
+
 
 if __name__ == "__main__":
     prepare_context_structure()
