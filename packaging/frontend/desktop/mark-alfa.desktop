@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Mark Alfa
 Comment=Agente Jarvis Local
-Exec=/opt/jarvis/frontend/app
+Exec=python3 /opt/jarvis/frontend/app.py
 Icon=/opt/jarvis/frontend/assets/icon.png
 Terminal=false
 Type=Application

@@ -208,7 +208,7 @@ class JarvisApp(ctk.CTk):
     def on_mode_change(self, value):
         self.send_action_async("change_mode", {"mode": value})
         
-def on_model_change(self, value):
+    def on_model_change(self, value):
         if value == "Customizado (Digitar ID)":
             dialog = ctk.CTkInputDialog(text="Digite o ID do Modelo (ex: vertex_ai/gemini... ou openai/gpt-4...):", title="Modelo Customizado")
             val = dialog.get_input()
