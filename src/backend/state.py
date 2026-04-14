@@ -1,7 +1,15 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from config import BUILTIN_MODELS, DEFAULT_MODEL, dedupe_models, is_allowed_custom_model
+from config import (
+    BASE_DIR,
+    BUILTIN_MODELS,
+    DEFAULT_MODEL,
+    INITIAL_RULES_FILE,
+    dedupe_models,
+    is_allowed_custom_model,
+    now_timestamp,
+)
 from config_manager import load_config, load_session_state, save_session_state
 
 
@@ -27,6 +35,11 @@ class BackendState:
             "status": self.status,
             "active_task": self.active_task,
             "history_revision": self.history_revision,
+            "paths": {
+                "base_dir": str(BASE_DIR),
+                "rules_file": str(INITIAL_RULES_FILE),
+                "rules_dir": str(INITIAL_RULES_FILE.parent),
+            },
         }
 
     def get_model_catalog(self) -> Dict[str, List[str]]:
@@ -49,10 +62,14 @@ class BackendState:
         self.custom_models = dedupe_models(self.custom_models)
         return True
 
-    def append_history(self, message_type: str, content: str):
+    def append_history(self, message_type: str, content: str, timestamp: str | None = None):
+        if content is None:
+            return
+        content = str(content)
         if not content:
             return
 
+        effective_timestamp = timestamp or now_timestamp()
         if (
             message_type in MERGEABLE_HISTORY_TYPES
             and self.session_history
@@ -64,6 +81,7 @@ class BackendState:
                 {
                     "message_type": message_type,
                     "content": content,
+                    "timestamp": effective_timestamp,
                 }
             )
 

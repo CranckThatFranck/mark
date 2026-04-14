@@ -8,6 +8,7 @@ Type=simple
 User=root
 WorkingDirectory=/opt/jarvis/backend
 Environment=PYTHONUNBUFFERED=1
+StateDirectory=jarvis-mark
 ExecStart=/opt/jarvis/venv/bin/python /opt/jarvis/backend/server.py
 Restart=on-failure
 RestartSec=5

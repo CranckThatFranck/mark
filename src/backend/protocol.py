@@ -55,11 +55,13 @@ class ProtocolParser:
         return json.dumps(response)
 
     @staticmethod
-    def build_stream_message(msg_type: str, content: str) -> str:
+    def build_stream_message(msg_type: str, content: str, timestamp: str | None = None) -> str:
+        normalized_content = "" if content is None else str(content)
         return json.dumps(
             {
                 "type": "stream",
                 "message_type": msg_type,
-                "content": content,
+                "content": normalized_content,
+                "timestamp": timestamp,
             }
         )

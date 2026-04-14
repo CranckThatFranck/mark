@@ -3,7 +3,8 @@ import os
 
 from interpreter import interpreter
 
-from config import DEFAULT_MODEL, LEGACY_ENV_KEYS, is_supported_model
+from config import DEFAULT_MODEL, INITIAL_RULES_FILE, LEGACY_ENV_KEYS, is_supported_model
+from config_manager import load_initial_rules
 
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,8 @@ class AgentRunner:
 
     def _configure_interpreter(self):
         self.interpreter.auto_run = True
+        self.interpreter.custom_instructions = load_initial_rules()
+        logger.info(f"Regras iniciais do produto carregadas de {INITIAL_RULES_FILE}")
         self.update_model(DEFAULT_MODEL)
 
     def _clear_legacy_provider_environment(self):

@@ -1,61 +1,145 @@
 import asyncio
 from contextlib import suppress
+import errno
 import json
 import logging
 import os
 
 import websockets
-from websockets.exceptions import ConnectionClosed
+from websockets.exceptions import ConnectionClosed, InvalidHandshake, WebSocketException
 
 
 logger = logging.getLogger(__name__)
 
 
 class JarvisWSClient:
-    """Cliente WebSocket com auto-reconnect para o frontend do Mark."""
+    """Cliente WebSocket com reconexao e sinalizacao mais precisa para a UI."""
 
-    def __init__(self, host="127.0.0.1", port=8765, ui_callback=None):
+    def __init__(self, host="127.0.0.1", port=8765, ui_callback=None, reconnect_delay=2.0):
         resolved_host = os.environ.get("MARK_WS_HOST", host)
         resolved_port = int(os.environ.get("MARK_WS_PORT", str(port)))
 
         self.uri = f"ws://{resolved_host}:{resolved_port}"
         self.ui_callback = ui_callback
+        self.reconnect_delay = reconnect_delay
         self.websocket = None
         self.connected = False
         self._task = None
+        self._closing = False
+        self._had_successful_connection = False
+
+    def _emit_ui_event(self, payload):
+        if self.ui_callback:
+            self.ui_callback(payload)
+
+    def _describe_failure(self, exc: Exception) -> str:
+        message = str(exc).strip()
+        if isinstance(exc, InvalidHandshake):
+            return message or "handshake interrompido antes da sessao ficar pronta"
+        if isinstance(exc, ConnectionClosed):
+            return message or "transporte WebSocket encerrado sem confirmacao completa"
+        if isinstance(exc, ConnectionRefusedError):
+            return "servico nao aceitou a conexao na porta configurada"
+        if isinstance(exc, OSError):
+            if getattr(exc, "errno", None) in {errno.ECONNREFUSED, 111, 61, 10061}:
+                return "servico indisponivel ou ainda nao pronto para aceitar conexoes"
+            return message or "falha de transporte ao falar com o backend"
+        return message or exc.__class__.__name__
+
+    def _failure_status(self, exc: Exception) -> str:
+        if isinstance(exc, (InvalidHandshake, ConnectionClosed, WebSocketException)):
+            return "reconnecting"
+        if isinstance(exc, ConnectionRefusedError):
+            return "unavailable"
+        if isinstance(exc, OSError) and getattr(exc, "errno", None) in {errno.ECONNREFUSED, 111, 61, 10061}:
+            return "unavailable"
+        if self._had_successful_connection:
+            return "reconnecting"
+        return "unavailable"
 
     async def connect(self):
-        while True:
+        attempt = 0
+        while not self._closing:
             try:
+                if attempt == 0 and not self._had_successful_connection:
+                    self._emit_ui_event({"type": "connection_status", "status": "connecting"})
                 logger.info(f"Tentando conectar a {self.uri}...")
-                async with websockets.connect(self.uri) as websocket:
+                async with websockets.connect(
+                    self.uri,
+                    ping_interval=20,
+                    ping_timeout=20,
+                    close_timeout=3,
+                ) as websocket:
                     self.websocket = websocket
                     self.connected = True
-                    if self.ui_callback:
-                        self.ui_callback({"type": "connection_status", "status": "connected"})
+                    recovered = self._had_successful_connection
+                    self._had_successful_connection = True
+                    attempt = 0
+                    self._emit_ui_event(
+                        {
+                            "type": "connection_status",
+                            "status": "connected",
+                            "recovered": recovered,
+                        }
+                    )
 
                     async for message in websocket:
                         try:
                             payload = json.loads(message)
-                            if self.ui_callback:
-                                self.ui_callback(payload)
                         except json.JSONDecodeError:
                             logger.error("Mensagem JSON invalida recebida")
+                            continue
+                        self._emit_ui_event(payload)
+
+                if self._closing:
+                    break
+
+                self.connected = False
+                self.websocket = None
+                attempt += 1
+                detail = "sessao WebSocket encerrada; iniciando nova tentativa de conexao"
+                self._emit_ui_event(
+                    {
+                        "type": "connection_status",
+                        "status": "reconnecting",
+                        "detail": detail,
+                        "attempt": attempt,
+                    }
+                )
+                logger.warning(f"Falha de conexao com o backend (reconnecting): {detail}")
+                await asyncio.sleep(self.reconnect_delay)
+                continue
 
             except asyncio.CancelledError:
                 raise
-            except (ConnectionClosed, ConnectionRefusedError, OSError) as exc:
+            except (ConnectionClosed, InvalidHandshake, WebSocketException, ConnectionRefusedError, OSError) as exc:
+                if self._closing:
+                    break
+
                 self.connected = False
                 self.websocket = None
-                if self.ui_callback:
-                    self.ui_callback({"type": "connection_status", "status": "disconnected"})
-                logger.warning(f"Conexao perdida. Tentando novamente em 3s... {exc}")
-                await asyncio.sleep(3)
+                attempt += 1
+                status = self._failure_status(exc)
+                detail = self._describe_failure(exc)
+                self._emit_ui_event(
+                    {
+                        "type": "connection_status",
+                        "status": status,
+                        "detail": detail,
+                        "attempt": attempt,
+                    }
+                )
+                logger.warning(f"Falha de conexao com o backend ({status}): {detail}")
+                await asyncio.sleep(self.reconnect_delay)
+            finally:
+                self.connected = False
+                self.websocket = None
 
     def start(self, loop):
         self._task = loop.create_task(self.connect())
 
     async def close(self):
+        self._closing = True
         if self.websocket:
             await self.websocket.close()
         if self._task:
@@ -75,6 +159,15 @@ class JarvisWSClient:
         try:
             await self.websocket.send(json.dumps(envelope))
             return True
-        except Exception as exc:
-            logger.error(f"Erro ao enviar {action}: {exc}")
+        except (ConnectionClosed, OSError) as exc:
+            self.connected = False
+            self.websocket = None
+            self._emit_ui_event(
+                {
+                    "type": "connection_status",
+                    "status": "reconnecting",
+                    "detail": self._describe_failure(exc),
+                }
+            )
+            logger.warning(f"Erro ao enviar {action}: {exc}")
             return False

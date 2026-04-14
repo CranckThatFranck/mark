@@ -34,15 +34,7 @@ def wait_for(app, predicate, timeout=10.0, message="Condicao nao atendida"):
 
 
 def get_conversation_texts(app):
-    texts = []
-    for block in app.conversation_blocks:
-        for child in block.winfo_children():
-            if hasattr(child, "cget"):
-                try:
-                    texts.append(child.cget("text"))
-                except Exception:
-                    pass
-    return texts
+    return app.get_conversation_texts()
 
 
 def run_frontend_smoke():
@@ -70,6 +62,39 @@ def run_frontend_smoke():
         timeout=20.0,
         message="Prompt do usuario nao apareceu na conversa",
     )
+    assert any(block["timestamp"] for block in app.conversation_blocks), "Mensagens sem timestamp visivel"
+    assert len(app.technical_blocks) > 0, "Painel tecnico nao recebeu eventos"
+
+    print("Forcando interrupcao abrupta do transporte para validar reconexao...")
+    app.async_loop.call_soon_threadsafe(app.ws_client.websocket.transport.abort)
+    wait_for(
+        app,
+        lambda: app.connection_status in {"reconnecting", "connected"},
+        timeout=10.0,
+        message="Frontend nao detectou falha temporaria de transporte",
+    )
+    wait_for(
+        app,
+        lambda: app.connection_status == "connected",
+        timeout=15.0,
+        message="Frontend nao reconectou apos falha temporaria de transporte",
+    )
+    wait_for(
+        app,
+        lambda: any(PROMPT in text for text in get_conversation_texts(app)),
+        timeout=15.0,
+        message="Historico nao reapareceu apos reconexao",
+    )
+
+    app.toggle_technical_panel()
+    pump(app, 0.2)
+    assert app.technical_panel_collapsed is True
+    app.toggle_technical_panel()
+    pump(app, 0.2)
+    assert app.technical_panel_collapsed is False
+
+    app.copy_to_clipboard(PROMPT)
+    assert PROMPT in app.clipboard_get()
 
     pump(app, 0.3)
     app.on_close()

@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import socket
 
 import websockets
 
@@ -43,7 +44,18 @@ async def smoke_test():
         assert sync_data["type"] == "sync_state"
         assert sync_data["state"]["model"] in EXPECTED_BUILTIN_MODELS
         assert sync_data["models"]["builtin"] == EXPECTED_BUILTIN_MODELS
+        assert sync_data["state"]["paths"]["rules_file"].endswith("product_config/initial_rules.txt")
         print("sync_state inicial recebido com modelo Gemini e catalogo correto.")
+
+        print("Simulando handshake interrompido para validar resiliencia do daemon...")
+        raw_socket = socket.create_connection((host, int(port)), timeout=2)
+        raw_socket.sendall(b"GET / HTTP/1.1\r\nHost: localhost\r\n")
+        raw_socket.close()
+        await asyncio.sleep(0.3)
+        await websocket.send(json.dumps({"action": "healthcheck"}))
+        response = json.loads(await asyncio.wait_for(websocket.recv(), timeout=5.0))
+        assert response["action"] == "healthcheck"
+        print("Daemon continuou responsivo apos handshake interrompido.")
 
         print("Enviando healthcheck...")
         await websocket.send(json.dumps({"action": "healthcheck"}))
@@ -141,6 +153,7 @@ async def smoke_test():
         assert sync_data["state"]["model"] == EXECUTION_MODEL
         assert CUSTOM_MODEL in sync_data["models"]["custom"]
         assert any(item["message_type"] == "user" and PROMPT in item["content"] for item in sync_data.get("history", []))
+        assert all(item.get("timestamp") for item in sync_data.get("history", []))
         print("Historico e modelo customizado retornaram no handshake.")
 
         print("Validando rejeicao a modelo nao-Gemini...")

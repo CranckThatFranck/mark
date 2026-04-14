@@ -4,9 +4,12 @@ import logging
 from config import (
     CONFIG_FILE,
     DEFAULT_MODEL,
+    INITIAL_RULES_FILE,
+    DEFAULT_INITIAL_RULES,
     SESSION_FILE,
     dedupe_models,
     is_allowed_custom_model,
+    now_timestamp,
     is_supported_model,
     normalize_model,
 )
@@ -84,6 +87,12 @@ def default_session_state():
     return {"history": []}
 
 
+def _sanitize_timestamp(value):
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return now_timestamp()
+
+
 def sanitize_session_state(session_data):
     if not isinstance(session_data, dict):
         return default_session_state()
@@ -104,6 +113,7 @@ def sanitize_session_state(session_data):
             {
                 "message_type": message_type,
                 "content": content,
+                "timestamp": _sanitize_timestamp(item.get("timestamp")),
             }
         )
 
@@ -122,3 +132,16 @@ def save_session_state(session_data: dict):
     sanitized = sanitize_session_state(session_data)
     _write_json(SESSION_FILE, sanitized)
     return sanitized
+
+
+def load_initial_rules() -> str:
+    if not INITIAL_RULES_FILE.exists():
+        return DEFAULT_INITIAL_RULES
+
+    try:
+        rules_text = INITIAL_RULES_FILE.read_text(encoding="utf-8").strip()
+    except Exception as exc:
+        logger.error(f"Erro ao ler {INITIAL_RULES_FILE}: {exc}")
+        return DEFAULT_INITIAL_RULES
+
+    return rules_text or DEFAULT_INITIAL_RULES

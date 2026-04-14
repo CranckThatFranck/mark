@@ -1,10 +1,15 @@
 import os
+from datetime import datetime
 from pathlib import Path
 
 
 INSTALL_DIR = Path("/opt/jarvis")
-BACKEND_DIR = INSTALL_DIR / "backend"
+INSTALL_BACKEND_DIR = INSTALL_DIR / "backend"
 FRONTEND_DIR = INSTALL_DIR / "frontend"
+CURRENT_BACKEND_DIR = Path(__file__).resolve().parent
+PRODUCT_CONFIG_DIR = CURRENT_BACKEND_DIR / "product_config"
+INITIAL_RULES_FILE = PRODUCT_CONFIG_DIR / "initial_rules.txt"
+INSTALLED_STATE_DIR = Path("/var/lib/jarvis-mark")
 
 
 DEFAULT_MODEL = "gemini/gemini-3-flash-preview"
@@ -23,6 +28,15 @@ LEGACY_ENV_KEYS = (
     "VERTEX_LOCATION",
     "VERTEXAI_LOCATION_DEFAULT",
 )
+DEFAULT_INITIAL_RULES = """Voce e o Mark Alfa, um agente local operando pelo backend instalado do produto.
+
+Regras globais iniciais:
+- responda em portugues do Brasil, salvo pedido explicito do usuario por outro idioma;
+- seja direto, tecnico e cuidadoso com impacto em arquivos, processos e sistema;
+- preserve a arquitetura existente antes de propor refatores amplos;
+- explique riscos relevantes, mas sem transformar cada resposta em discurso longo;
+- quando produzir codigo, prefira caminhos reais, comandos executaveis e conteudo final utilizavel.
+"""
 
 
 def _get_home_dir() -> Path:
@@ -32,17 +46,43 @@ def _get_home_dir() -> Path:
     return Path.home()
 
 
-def get_base_dir() -> Path:
-    override = os.environ.get("MARK_BASE_DIR")
-    if override:
-        return Path(override).expanduser()
+def _installed_layout_active() -> bool:
+    return CURRENT_BACKEND_DIR == INSTALL_BACKEND_DIR
 
-    home = _get_home_dir()
+
+def _legacy_home_base_dir(home: Path) -> Path:
     for dirname in ("Documents", "Documentos"):
         candidate = home / dirname
         if candidate.exists() and candidate.is_dir():
             return candidate / "JarvisMark"
     return home / "JarvisMark"
+
+
+def _resolve_legacy_installed_state_dir() -> Path | None:
+    root_home = Path("/root")
+    for candidate in (
+        root_home / "Documents" / "JarvisMark",
+        root_home / "Documentos" / "JarvisMark",
+        root_home / "JarvisMark",
+    ):
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def get_base_dir() -> Path:
+    override = os.environ.get("MARK_BASE_DIR")
+    if override:
+        return Path(override).expanduser()
+
+    if _installed_layout_active():
+        legacy_dir = _resolve_legacy_installed_state_dir()
+        if legacy_dir is not None:
+            return legacy_dir
+        return INSTALLED_STATE_DIR
+
+    home = _get_home_dir()
+    return _legacy_home_base_dir(home)
 
 
 BASE_DIR = get_base_dir()
@@ -57,6 +97,10 @@ CHANGE_LOG = LOGS_DIR / "change.log"
 BACKEND_LOG = LOGS_DIR / "backend.log"
 CONFIG_FILE = STATE_DIR / "config.json"
 SESSION_FILE = STATE_DIR / "session.json"
+
+
+def now_timestamp() -> str:
+    return datetime.now().astimezone().isoformat(timespec="seconds")
 
 
 def normalize_model(model_name: str | None) -> str:
