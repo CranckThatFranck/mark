@@ -1,12 +1,13 @@
 ## A fazer
-- Validar no frontend instalado e no repositório final o autoscroll, o input multilinha expansível, o atalho `Shift+Enter`, a persistência da sessão e os novos artefatos RPM/DEB.
+- Nenhum item pendente nesta rodada final.
 
 ## Fazendo
-- Atualizar README e validações finais após a nova UX do chat, reempacotar e validar novamente os artefatos instaláveis.
+- Nenhum item em andamento.
 
 ## Feito
 - 2026-04-14 UX final do frontend corrigida nesta rodada: conversa principal e painel técnico agora seguem automaticamente a última saída quando o usuário está no fim, preservam a leitura quando ele sobe manualmente, e o campo de entrada virou multilinha expansível com `Shift+Enter` para quebra de linha e `Enter` para envio.
 - 2026-04-14 Investigado o motivo do aviso eventual de "Falha temporária de comunicação": além de fechamentos abruptos do cliente (`no close frame received or sent`), o backend ainda podia atrasar handshakes durante tarefas longas por executar `interpreter.chat(...)` no loop principal; o streaming do agente foi movido para thread auxiliar com entrega assíncrona de chunks, liberando o loop de rede para reconexão e novos handshakes.
+- 2026-04-14 Rodada final de UX validada também no artefato instalado: frontend em `/opt/jarvis/frontend/app.py` confirmado com autoscroll respeitoso, input multilinha expansível, `Shift+Enter`, reconexão com sessão reidratada e smoke do frontend executado com o Python instalado em `/opt/jarvis/venv/bin/python`.
 - 2026-04-14 Politica de persistencia revisada sem quebrar a instalacao atual: o produto instalado agora prefere `/var/lib/jarvis-mark`, mas preserva automaticamente a arvore legada encontrada nesta maquina em `/root/Documents/JarvisMark`; arquivo padrao de regras integrado em `/opt/jarvis/backend/product_config/initial_rules.txt`, carregado pelo backend e exposto no frontend por botoes/atalho.
 - 2026-04-14 README final reescrito para refletir o comportamento real do sistema, incluindo transporte WebSocket resiliente, politica de persistencia, arquivo de regras do produto instalado, distincao em relacao a `~/jarvis_rules.txt` e fluxo final de empacotamento.
 - 2026-04-14 Pacotes finais atualizados gerados e validados: `jarvis-backend-1.0.0-1.fc43.noarch.rpm`, `jarvis-frontend-1.0.0-1.fc43.noarch.rpm`, `jarvis-backend_1.0.0_all.deb` e `jarvis-frontend_1.0.0_all.deb`; RPM reinstalado nesta maquina, `jarvis-backend.service` validado via systemd, handshakes abortados sem novo erro fatal no journal e smoke do frontend instalado concluido com sucesso.

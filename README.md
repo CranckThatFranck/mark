@@ -19,7 +19,7 @@ Esta arvore finaliza o produto instalavel em `/opt/jarvis`, sem confundir isso c
 - credencial consumida pela aplicacao: somente `GOOGLE_API_KEY`
 - transporte: quando o backend continua vivo e ocorre erro de WebSocket/handshake/transporte, o frontend trata isso como falha temporaria de comunicacao e tenta reconectar automaticamente
 - sessao: no handshake inicial ou de reconexao o frontend recebe estado, catalogo de modelos e historico persistido da sessao ativa
-- UX: conversa principal dominante, painel tecnico secundario colapsavel e redimensionavel, texto selecionavel por mouse, timestamps visiveis e botoes de copiar
+- UX: conversa principal dominante, painel tecnico secundario colapsavel e redimensionavel, autoscroll operacional, texto selecionavel por mouse, timestamps visiveis, botoes de copiar e input multilinha com `Shift+Enter`
 
 ## Arquitetura preservada
 
@@ -166,6 +166,11 @@ O frontend agora entrega:
 - painel tecnico como trilha secundaria
 - painel tecnico colapsavel
 - painel tecnico redimensionavel verticalmente pelo usuario
+- autoscroll na conversa principal e no painel tecnico quando o usuario esta no fim
+- preservacao da leitura quando o usuario sobe manualmente para revisar mensagens antigas
+- campo de entrada multilinha com crescimento vertical conforme novas linhas
+- `Shift+Enter` para quebra de linha
+- `Enter` simples para envio
 - texto copiavel por selecao com mouse nas mensagens e nos eventos tecnicos
 - timestamps visiveis nas mensagens principais e nos eventos tecnicos
 - botoes `Copiar` nas mensagens, saidas tecnicas, codigo e console
@@ -247,6 +252,11 @@ O smoke do frontend cobre:
 - conexao ao backend
 - troca de modelo
 - envio de multiplas mensagens
+- autoscroll da conversa principal
+- autoscroll do painel tecnico
+- preservacao de leitura ao sair manualmente do fim do chat
+- input multilinha expansivel
+- `Shift+Enter` para nova linha e `Enter` para envio
 - falha temporaria de transporte com reconexao
 - reidratacao do historico apos reconexao
 - painel tecnico colapsavel
@@ -263,6 +273,7 @@ O smoke do frontend cobre:
   - aguarde a reconexao automatica ou clique em `Sincronizar`
 - frontend mostra falha temporaria de comunicacao:
   - o backend pode continuar vivo; a UI tentara reconectar sozinha
+  - nas tarefas longas atuais o loop de rede do backend continua responsivo durante o streaming do agente, reduzindo timeouts de handshake na reconexao
   - confira `journalctl` para confirmar que o daemon nao caiu
 - modelo customizado nao aparece:
   - use prefixo `gemini/`
