@@ -3,3 +3,13 @@
 ** No ## Fazendo
 
 ## A fazer
+- Localizar e instalar os pacotes .rpm finais do backend e frontend.
+- Validar a instalação dos pacotes em /opt/jarvis.
+- Habilitar o serviço jarvis-backend para iniciar com o sistema.
+- Validar o ciclo de vida do serviço (start, stop, status).
+- Configurar o ambiente do systemd para consumir credenciais existentes.
+- Validar o funcionamento do frontend e do launcher .desktop.
+- Testar a conexão frontend-backend e o hotswap de modelos.
+- Auditar e corrigir o README.md com as informações finais de instalação e configuração.
+- Regenerar pacotes RPM/DEB caso seja encontrada alguma inconsistência final.
+- Concluir a instalação e validação definitiva do Mark Alfa nesta máquina.
