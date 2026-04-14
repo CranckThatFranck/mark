@@ -1,95 +1,67 @@
 # Mark Alfa
 
 Este é o repositório oficial do Mark Alfa, um sistema composto por:
-- **Backend (Python)**: Um servidor WebSocket local encapsulando o Open Interpreter gerenciado pelo systemd.
+- **Backend (Python)**: Um servidor WebSocket local encapsulando o Open Interpreter rodando em background (SystemD).
 - **Frontend (Python)**: Uma interface gráfica nativa em CustomTkinter interagindo via WebSocket para controle.
 
-## Requisitos e Dependências
+## Requisitos e Pré-Instalações (Dependências Externas)
 - **SO**: Fedora (RPM) ou Ubuntu (DEB).
-- **Python**: Versão 3.10 a 3.12 (`venv` isolado exigido no deploy). 
-- **Hardware**: CPU x86_64 moderna (instruções AVX suportadas).
-- **Dependências (Pip)**: `websockets`, `psutil`, `open-interpreter`, `customtkinter`, `setuptools<70.0.0`.
+- **Python**: Versão 3.10 a 3.12 (exigido ambiente isolado `venv` no servidor).
+- **Hardware**: CPU x86_64 compatível com AVX/SSE4 (Para `numpy 2.x`). Caso utilize hardware antigo (Ex: Pentium P6200), você deve compilar manualmente a versão legado `numpy==1.26.4`.
+- **Dependências (Pip)**: O pacote `.rpm`/`.deb` espera que o ambiente global do servidor possua um python ou forneça essas libs: `websockets`, `psutil`, `open-interpreter`, `customtkinter`, `setuptools<70.0.0` e, **OBRIGATÓRIO para usar a rota de modelos Vertex AI, o pacote `google-cloud-aiplatform`**.
+- **Nota do RPM:** Os pacotes RPM/DEB empacotam apenas a estrutura base da aplicação em `/opt/jarvis`. A gerência do `venv` ou Python System-wide é pré-requisito externo do sistema operacional e de quem o opera.
 
-## Preparações de Ambiente (LLM Providers e API Keys)
-O backend do Mark Alfa utiliza a biblioteca LiteLLM embutida no Open Interpreter, o que permite o uso dinâmico de diferentes provedores. **A responsabilidade de prover chaves e configurar o ambiente de sistema é puramente do Operador**. O Mark não automatiza criação de keys ou injeção forçada de credenciais no SO por razões de segurança.
+## Configuração de Ambiente (API Keys & Cloud)
+A responsabilidade por configurar credenciais, JSONs e exportar variáveis de sistema **pertence puramente ao Operador Humano**. A aplicação apenas consome o que o sistema operacional lhe dá.
 
-Você pode usar modelos através de 2 mecanismos principais (configuráveis a qualquer momento via hotswap na UI do Mark):
+O Mark permite Hotswap de modelos na UI. Cada provedor requer uma var diferente:
 
-### 1. Modelos Gemini via API Key simples (`gemini/...`)
-Para acessar os modelos abertos do Google (ex: `gemini-2.5-flash`, `gemini-2.5-pro`):
-Exporte no seu shell (se for rodar o `server.py` manualmente):
-```bash
-export GEMINI_API_KEY="sua_chave"
-```
-**No SystemD (Uso Produtivo Instalável):**
-Crie um drop-in de override antes de ativar o daemon:
-```bash
-sudo mkdir -p /etc/systemd/system/jarvis-backend.service.d
-sudo bash -c 'cat << EOF > /etc/systemd/system/jarvis-backend.service.d/override.conf
-[Service]
-Environment="GEMINI_API_KEY=sua_chave_aqui"
-EOF'
-sudo systemctl daemon-reload
-```
+### 1. Modelos Gemini Básicos (`gemini/...`)
+Exige a var genérica:
+`GOOGLE_API_KEY="sua_chave"`
 
-### 2. Modelos Vertex AI via Conta de Serviço Google Cloud (`vertex_ai/...`)
-Para acessar modelos de peso empresarial e Llama (ex: `vertex_ai/gemini-3.1-pro-preview-customtools` que é o padrão atual do Mark, ou `vertex_ai/llama-4-maverick-17b-128e-instruct-maas`), você precisa fornecer as credenciais via Application Default Credentials (JSON).
+### 2. Modelos Vertex AI Enterprise (`vertex_ai/...`)
+Exige as variáveis de projeto, autenticação explícita JSON e o pacote `google-cloud-aiplatform`:
+`GOOGLE_APPLICATION_CREDENTIALS="/caminho/real/do/json/chave.json"`
+`VERTEXAI_PROJECT="meu-projeto-123"`
+`VERTEXAI_LOCATION="us-east5"` (opcional, padrão do Mark é `us-east5`).
 
-Exporte as seguintes variáveis no shell local (se for uso dev):
-```bash
-export VERTEXAI_PROJECT="id-do-seu-projeto-gcp"
-export VERTEXAI_LOCATION="us-east5" # Região opcional. O backend forçará o override do frontend se configurado na interface.
-export GOOGLE_APPLICATION_CREDENTIALS="/caminho/absoluto/para/sua/chave-de-servico.json"
-```
-
-**Exemplos de Camnho JSON por SO:**
-- Fedora/Linux Geral: `/home/usuario/.config/gcloud/application_default_credentials.json`
-- Ubuntu (Servidor): `/etc/gcp/mark-service-account.json`
-
-**No SystemD (Uso Produtivo Instalável com Vertex AI):**
-Da mesma forma, o daemon precisa herdar este Application Credentials e o Project. Configure no seu Drop-in:
-```bash
-sudo mkdir -p /etc/systemd/system/jarvis-backend.service.d
-sudo bash -c 'cat << EOF > /etc/systemd/system/jarvis-backend.service.d/override.conf
-[Service]
-Environment="VERTEXAI_PROJECT=seu-projeto-123"
-Environment="GOOGLE_APPLICATION_CREDENTIALS=/caminho/real/do/json/chave.json"
-EOF'
-sudo systemctl daemon-reload
-```
-A região padrão do projeto é `us-east5`. No entanto, você pode alterá-la dinamicamente escolhendo ou digitando uma região nova diretamente na Interface do Mark Alfa, que o backend atualizará a conexão Vertex em tempo real.
+*Exemplo de caminhos comuns para o JSON no SO:*
+- Fedora/Desktop: `/home/usuario/Documentos/credentials/chave-vertex.json`
+- Ubuntu/Server: `/etc/gcp/chave-vertex.json`
 
 ## Instalação (Produto Instalável Final)
-O Produto oficial e final opera independentemente do diretório de onde o código fonte foi baixado. Ele é instalado como sistema.
 
-**1. Instalação do Backend (`jarvis-backend`)**
-Baixe ou compile o `.rpm` / `.deb` respectivo e instale.
-A instalação jogará a pasta do backend para o destino `/opt/jarvis/backend/`.
-- Após garantir as premissas de ambiente com `override.conf` das chaves:
+**1. Instalação do Backend e Frontend**
+Baixe os pacotes `.rpm` (RedHat) ou `.deb` (Debian) e instale:
+`sudo rpm -ivh jarvis-backend-1.0.0-1.x86_64.rpm`
+`sudo rpm -ivh jarvis-frontend-1.0.0-1.x86_64.rpm`
+- O código fonte do backend vai para `/opt/jarvis/backend/`
+- O código do frontend vai para `/opt/jarvis/frontend/` e gera um launcher global (`/usr/share/applications/mark-alfa.desktop`)
+
+**2. Configuração e Autostart do Daemon**
+Serviços em Systemd **não herdam** exports de `.bashrc` do usuário logado. Portanto, você é obrigado a prover as credenciais listadas acima em um `override.conf` para o daemon subir:
 ```bash
-sudo systemctl enable --now jarvis-backend
+sudo mkdir -p /etc/systemd/system/jarvis-backend.service.d
+sudo bash -c 'cat << EOF > /etc/systemd/system/jarvis-backend.service.d/override.conf
+[Service]
+Environment="GOOGLE_API_KEY=sua_chave_gemini"
+Environment="GOOGLE_APPLICATION_CREDENTIALS=/etc/sua_chave_vertex.json"
+Environment="VERTEXAI_PROJECT=seu_projeto"
+EOF'
+sudo systemctl daemon-reload
 ```
+Por padrão, ao instalar via `.rpm` e recarregar, execute `sudo systemctl enable --now jarvis-backend` e o servidor iniciará junto com a máquina.
 
-**2. Instalação do Frontend (`jarvis-frontend`)**
-O pacote `.rpm` / `.deb` colocará o código de interface em `/opt/jarvis/frontend/` e criará um launcher global Desktop.
-Você pode abrir o software buscando por "Mark Alfa" no seu menu de aplicações (GNOME, XFCE).
-
-## Uso Local (Modo Desenvolvedor)
-Se você não instalou via RPM/DEB e quer rodar os scripts da pasta de clone:
-1. `pip install -r requirements.txt` (use venv).
-2. `./scripts/run_backend_local.sh`
-3. `python3 src/frontend/app.py`
+## Operação e Uso Local (Dev)
+- **Modo Desenvolvedor (Terminal):** Se você quer apenas rodar o repositório sem instalar, exporte as variáveis no bash, rode `pip install -r requirements.txt`, inicie o backend com `./scripts/run_backend_local.sh` e o frontend com `python3 src/frontend/app.py`.
+- **Hotswap no Frontend:** Você pode selecionar novos modelos pelo Dropdown. A opção `"Customizado (Digitar ID)"` permite injetar um nome não listado. O mesmo ocorre no dropdown de `"Regiões"` (útil para Llama MAAS). As escolhas persistem sessão a sessão.
+- **Interrupção:** O botão "KILL SWITCH" aborta via PID Group a execução presa e devolve o motor pro idle.
 
 ## Divisão e Distinção de Ambientes
-O design da aplicação respeita as seguintes divisões lógicas estritas para não misturar dados:
-
-- **Ambiente de Desenvolvimento (O Agente Jarvis)**: A instância que desenvolve (Agente Autônomo) vive na pasta local do usuário em `/home/francisco/Documentos/JarvisMinion`. Estes arquivos e contextos são do agente desenvolvedor, não do produto Mark Alfa.
-- **Ambiente Instalável (O Produto Mark Alfa)**: Os pacotes instaláveis são abstraídos de usuário. Residem globalmente em `/opt/jarvis/`.
-- **Política de Contexto Dinâmico**: Embora os binários residam em `/opt`, o estado em tempo de execução do Mark Alfa (persistência, logs, config) busca um diretório dinâmico do usuário atual. Se ele encontrar um `~/Documents/JarvisMark` ou equivalente no home do usuário que iniciar a interface/sessão, ele salva `config.json` e logs (`backend.log`) lá, nunca sujando as permissões de `/opt/`.
-
-## Troubleshooting & Operação
-- **Interrupção (Kill Switch):** O botão vermelho no Frontend injeta o comando `interrupt` que forçadamente desativa a árvore de PID e Grupo PID do Open Interpreter em loops problemáticos, garantindo limpeza da RAM e retornando pro estado ocioso.
-- **Conexão Falha (Erro 111):** Verifique o systemd `sudo systemctl status jarvis-backend` para conferir se o daemon quebrou por falha nas API_KEYs.
+Este repositório respeita regras arquiteturais pesadas:
+- **Ambiente Atual (Agente Jarvis):** A IA operária que lê esse repositório roda do terminal restrito local e possui como fonte da verdade estrita o `~/jarvis_rules.txt`. Ela tem um diário em `MemoriaDoJarvis.log`. **Isso é interno ao desenvolvimento do Jarvis e não um requisito futuro do Produto em /opt.**
+- **Produto Instalável (Mark Alfa):** A instalação no diretório global `/opt/jarvis/` pertence a uma abstração diferente. O estado persistente dinâmico é salvo em `~/Documents/JarvisMark` do usuário final do sistema pra evitar falhas de permissão no root.
 
 ---
-Desenvolvido pela Gaia Works. Veja a pasta `AgentContext/` para especificações operacionais JSON e arquitetura.
+Desenvolvido por Gaia Works. O ecossistema completo dos Contratos JSON WS reside em `AgentContext/`.
