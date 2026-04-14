@@ -1,10 +1,11 @@
 ## A fazer
-- Nenhum item pendente fora da validacao final de empacotamento.
+- Nenhum item pendente nesta rodada.
 
 ## Fazendo
-- Reempacotar os artefatos `.rpm` e `.deb`, validar os arquivos gerados e conferir a cópia instalada em `/opt/jarvis`.
+- Nenhum item em andamento.
 
 ## Feito
+- 2026-04-14 Empacotamento final desta rodada concluido: novos `.rpm` e `.deb` regenerados no repositório, RPM reinstalado para atualizar `/opt/jarvis`, `jarvis-backend.service` validado ativo no `systemd` e smoke da cópia instalada do frontend concluído com sucesso.
 - 2026-04-14 Documentacao tecnica de integracao adicionada em `DevJarvis/mark-alfa-websocket.md`, cobrindo handshake `sync_state`, `stream`, `action_response`, historico de sessao, `execute_task`, `interrupt`, `get_status`, `get_models`, `get_config`, `update_config`, `change_model`, `change_mode` e operacao recomendada para clientes remotos.
 - 2026-04-14 README atualizado para refletir o host local padrao `127.0.0.1`, configuracao de host remoto persistente no frontend, localizacao da documentacao em `DevJarvis/`, arquivo oficial de regras do produto instalado e a separacao em relacao a `~/jarvis_rules.txt` do ambiente do agente desenvolvedor.
 - 2026-04-14 Convulsão visual do frontend corrigida nesta rodada: o resize global da janela foi removido do caminho crítico, o `PanedWindow` passou a reposicionar o sash apenas quando realmente necessário e o input multilinha só recalcula altura quando largura ou número efetivo de linhas mudam, eliminando jitter e reposicionamento recursivo do painel técnico e da barra inferior.
