@@ -13,7 +13,7 @@ from config import (
 from config_manager import load_config, load_session_state, save_session_state
 
 
-MERGEABLE_HISTORY_TYPES = {"message", "code", "console"}
+MERGEABLE_HISTORY_TYPES = {"code", "console"}
 
 
 @dataclass

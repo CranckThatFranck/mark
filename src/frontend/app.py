@@ -18,11 +18,24 @@ from ws_client import JarvisWSClient
 ADD_MODEL_LABEL = "Adicionar Gemini..."
 ADD_API_KEY_LABEL = "Cadastrar API key Gemini..."
 EMPTY_API_KEY_LABEL = "Sem chave persistida (usa GOOGLE_API_KEY)"
-USER_MESSAGE_TYPES = {"user", "message"}
+USER_MESSAGE_TYPES = {"user"}
+ASSISTANT_MESSAGE_TYPES = {"message", "assistant", "final", "output"}
 MERGEABLE_TECHNICAL_TYPES = {"code", "console"}
 AUTO_SCROLL_THRESHOLD = 0.04
 INPUT_MIN_LINES = 2
 INPUT_MAX_LINES = 8
+INPUT_RESIZE_DEBOUNCE_MS = 70
+UI_QUEUE_POLL_MS = 24
+UI_QUEUE_MAX_BATCH = 48
+WINDOW_MIN_WIDTH = 860
+WINDOW_MIN_HEIGHT = 560
+CONVERSATION_MIN_HEIGHT = 190
+TECHNICAL_MIN_HEIGHT = 120
+TECHNICAL_MAX_HEIGHT = 340
+TECHNICAL_TARGET_RATIO = 0.32
+SASH_RESIZE_THRESHOLD = 24
+CONVERSATION_WRAP_PADDING = 56
+INPUT_RESERVED_HEIGHT = 120
 LOCAL_BACKEND_HOSTS = {"127.0.0.1", "localhost", "::1"}
 TECHNICAL_HEADERS = {
     "status": "Status",
@@ -65,9 +78,12 @@ class JarvisApp(ctk.CTk):
 
         self.title("Mark Alfa")
         self.geometry("1180x800")
-        self.minsize(980, 680)
+        self.minsize(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT)
         self.configure(fg_color="#121416")
+        self._window_icon = None
+        self.apply_window_icon()
 
+        self.grid_columnconfigure(0, minsize=300)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
@@ -101,34 +117,59 @@ class JarvisApp(ctk.CTk):
         self._input_resize_after_id = None
         self._last_body_pane_height = None
         self._last_input_width = None
+        self._last_input_signature = (0, 0)
+        self._last_input_editor_height = 0
         self._current_input_lines = INPUT_MIN_LINES
+        self._placeholder_visible = True
+        self._last_root_size = (0, 0)
+        self._last_conversation_wrap_width = 0
+        self._conversation_autoscroll_after_id = None
+        self._assistant_stream_open = False
 
         self.build_sidebar()
         self.build_main_area()
+        self.bind_global_scroll_handlers()
 
         self.bind("<Control-Shift-R>", lambda _event: self.open_rules_target())
         self.bind("<Control-Shift-T>", lambda _event: self.toggle_technical_panel())
+        self.bind("<Configure>", self.on_window_configure)
         self.protocol("WM_DELETE_WINDOW", self.on_close)
-        self._poll_after_id = self.after(50, self.poll_ui_queue)
+        self._poll_after_id = self.after(UI_QUEUE_POLL_MS, self.poll_ui_queue)
+
+    def apply_window_icon(self):
+        icon_path = Path(__file__).resolve().parent / "assets" / "icon.png"
+        if not icon_path.exists():
+            return
+        try:
+            self._window_icon = tk.PhotoImage(file=str(icon_path))
+            self.iconphoto(True, self._window_icon)
+        except tk.TclError:
+            self._window_icon = None
 
     def build_sidebar(self):
-        self.sidebar_frame = ctk.CTkFrame(self, width=260, corner_radius=0, fg_color="#171a1c")
+        self.sidebar_frame = ctk.CTkFrame(self, width=300, corner_radius=0, fg_color="#171a1c")
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
-        self.sidebar_frame.grid_rowconfigure(17, weight=1)
+        self.sidebar_frame.grid_propagate(False)
+        self.sidebar_frame.grid_columnconfigure(0, weight=1)
+        self.sidebar_frame.grid_rowconfigure(1, weight=1)
 
         title_font = ctk.CTkFont(size=22, weight="bold")
         section_font = ctk.CTkFont(size=12, weight="bold")
 
+        self.sidebar_header_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
+        self.sidebar_header_frame.grid(row=0, column=0, padx=20, pady=(24, 14), sticky="ew")
+        self.sidebar_header_frame.grid_columnconfigure(0, weight=1)
+
         self.logo_label = ctk.CTkLabel(
-            self.sidebar_frame,
+            self.sidebar_header_frame,
             text="Mark Alfa",
             font=title_font,
             anchor="w",
         )
-        self.logo_label.grid(row=0, column=0, padx=20, pady=(24, 8), sticky="ew")
+        self.logo_label.grid(row=0, column=0, sticky="ew")
 
         self.connection_badge = ctk.CTkLabel(
-            self.sidebar_frame,
+            self.sidebar_header_frame,
             text=CONNECTION_STYLES["disconnected"]["badge"],
             fg_color=CONNECTION_STYLES["disconnected"]["fg"],
             text_color=CONNECTION_STYLES["disconnected"]["text"],
@@ -136,19 +177,31 @@ class JarvisApp(ctk.CTk):
             padx=10,
             pady=8,
         )
-        self.connection_badge.grid(row=1, column=0, padx=20, pady=(0, 18), sticky="ew")
+        self.connection_badge.grid(row=1, column=0, pady=(10, 0), sticky="ew")
+
+        self.sidebar_scroll_frame = ctk.CTkScrollableFrame(
+            self.sidebar_frame,
+            corner_radius=0,
+            fg_color="transparent",
+            scrollbar_button_color="#38444c",
+            scrollbar_button_hover_color="#4b5962",
+        )
+        self.sidebar_scroll_frame.grid(row=1, column=0, sticky="nsew")
+        self.sidebar_scroll_frame.grid_columnconfigure(0, weight=1)
+
+        sidebar_content = self.sidebar_scroll_frame
 
         self.backend_host_label = ctk.CTkLabel(
-            self.sidebar_frame,
+            sidebar_content,
             text="Host do backend",
             font=section_font,
             anchor="w",
             text_color="#c7d0d9",
         )
-        self.backend_host_label.grid(row=2, column=0, padx=20, pady=(0, 6), sticky="ew")
+        self.backend_host_label.grid(row=0, column=0, padx=20, pady=(18, 6), sticky="ew")
 
-        self.backend_host_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
-        self.backend_host_frame.grid(row=3, column=0, padx=20, pady=(0, 6), sticky="ew")
+        self.backend_host_frame = ctk.CTkFrame(sidebar_content, fg_color="transparent")
+        self.backend_host_frame.grid(row=1, column=0, padx=20, pady=(0, 6), sticky="ew")
         self.backend_host_frame.grid_columnconfigure(0, weight=1)
 
         self.backend_host_var = ctk.StringVar(value=self.backend_host)
@@ -171,27 +224,27 @@ class JarvisApp(ctk.CTk):
         self.apply_host_btn.grid(row=0, column=1)
 
         self.backend_target_label = ctk.CTkLabel(
-            self.sidebar_frame,
+            sidebar_content,
             text="Destino atual: Local | 127.0.0.1:8765",
             anchor="w",
             justify="left",
-            wraplength=220,
+            wraplength=260,
             text_color="#9eaab3",
         )
-        self.backend_target_label.grid(row=4, column=0, padx=20, pady=(0, 16), sticky="ew")
+        self.backend_target_label.grid(row=2, column=0, padx=20, pady=(0, 16), sticky="ew")
 
         self.mode_label = ctk.CTkLabel(
-            self.sidebar_frame,
+            sidebar_content,
             text="Modo",
             font=section_font,
             anchor="w",
             text_color="#c7d0d9",
         )
-        self.mode_label.grid(row=5, column=0, padx=20, pady=(0, 6), sticky="ew")
+        self.mode_label.grid(row=3, column=0, padx=20, pady=(0, 6), sticky="ew")
 
         self.mode_var = ctk.StringVar(value="agent")
         self.mode_menu = ctk.CTkOptionMenu(
-            self.sidebar_frame,
+            sidebar_content,
             values=["agent", "plan"],
             variable=self.mode_var,
             command=self.on_mode_change,
@@ -199,20 +252,20 @@ class JarvisApp(ctk.CTk):
             button_color="#2c6b57",
             button_hover_color="#1f5344",
         )
-        self.mode_menu.grid(row=6, column=0, padx=20, pady=(0, 16), sticky="ew")
+        self.mode_menu.grid(row=4, column=0, padx=20, pady=(0, 16), sticky="ew")
 
         self.model_label = ctk.CTkLabel(
-            self.sidebar_frame,
+            sidebar_content,
             text="Modelo Gemini",
             font=section_font,
             anchor="w",
             text_color="#c7d0d9",
         )
-        self.model_label.grid(row=7, column=0, padx=20, pady=(0, 6), sticky="ew")
+        self.model_label.grid(row=5, column=0, padx=20, pady=(0, 6), sticky="ew")
 
         self.model_var = ctk.StringVar(value="Carregando...")
         self.model_menu = ctk.CTkOptionMenu(
-            self.sidebar_frame,
+            sidebar_content,
             values=["Carregando..."],
             variable=self.model_var,
             command=self.on_model_change,
@@ -221,29 +274,29 @@ class JarvisApp(ctk.CTk):
             button_color="#4a6f45",
             button_hover_color="#39563a",
         )
-        self.model_menu.grid(row=8, column=0, padx=20, pady=(0, 10), sticky="ew")
+        self.model_menu.grid(row=6, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         self.add_model_btn = ctk.CTkButton(
-            self.sidebar_frame,
+            sidebar_content,
             text=ADD_MODEL_LABEL,
             command=self.on_add_model,
             fg_color="#6b4f1f",
             hover_color="#825e24",
         )
-        self.add_model_btn.grid(row=9, column=0, padx=20, pady=(0, 10), sticky="ew")
+        self.add_model_btn.grid(row=7, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         self.api_key_label = ctk.CTkLabel(
-            self.sidebar_frame,
+            sidebar_content,
             text="API Key Gemini ativa",
             font=section_font,
             anchor="w",
             text_color="#c7d0d9",
         )
-        self.api_key_label.grid(row=10, column=0, padx=20, pady=(0, 6), sticky="ew")
+        self.api_key_label.grid(row=8, column=0, padx=20, pady=(0, 6), sticky="ew")
 
         self.api_key_var = ctk.StringVar(value=EMPTY_API_KEY_LABEL)
         self.api_key_menu = ctk.CTkOptionMenu(
-            self.sidebar_frame,
+            sidebar_content,
             values=[EMPTY_API_KEY_LABEL],
             variable=self.api_key_var,
             command=self.on_api_key_selected,
@@ -252,10 +305,10 @@ class JarvisApp(ctk.CTk):
             button_color="#3d4c5d",
             button_hover_color="#4a5c72",
         )
-        self.api_key_menu.grid(row=11, column=0, padx=20, pady=(0, 8), sticky="ew")
+        self.api_key_menu.grid(row=9, column=0, padx=20, pady=(0, 8), sticky="ew")
 
-        self.api_key_actions_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
-        self.api_key_actions_frame.grid(row=12, column=0, padx=20, pady=(0, 10), sticky="ew")
+        self.api_key_actions_frame = ctk.CTkFrame(sidebar_content, fg_color="transparent")
+        self.api_key_actions_frame.grid(row=10, column=0, padx=20, pady=(0, 10), sticky="ew")
         self.api_key_actions_frame.grid_columnconfigure(0, weight=1)
         self.api_key_actions_frame.grid_columnconfigure(1, weight=1)
 
@@ -287,51 +340,53 @@ class JarvisApp(ctk.CTk):
         self.rotate_api_key_btn.grid(row=1, column=1, padx=(6, 0), sticky="ew")
 
         self.sync_btn = ctk.CTkButton(
-            self.sidebar_frame,
+            sidebar_content,
             text="Sincronizar",
             command=self.force_sync,
             fg_color="#25353f",
             hover_color="#2d4655",
         )
-        self.sync_btn.grid(row=13, column=0, padx=20, pady=(0, 10), sticky="ew")
+        self.sync_btn.grid(row=11, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         self.rules_btn = ctk.CTkButton(
-            self.sidebar_frame,
+            sidebar_content,
             text="Abrir regras",
             command=self.open_rules_target,
             fg_color="#3d3450",
             hover_color="#4d4266",
         )
-        self.rules_btn.grid(row=14, column=0, padx=20, pady=(0, 10), sticky="ew")
+        self.rules_btn.grid(row=12, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         self.rules_dir_btn = ctk.CTkButton(
-            self.sidebar_frame,
+            sidebar_content,
             text="Abrir pasta das regras",
             command=self.open_rules_directory,
             fg_color="#2b313d",
             hover_color="#384253",
         )
-        self.rules_dir_btn.grid(row=15, column=0, padx=20, pady=(0, 10), sticky="ew")
+        self.rules_dir_btn.grid(row=13, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         self.toggle_technical_btn = ctk.CTkButton(
-            self.sidebar_frame,
+            sidebar_content,
             text="Ocultar painel tecnico",
             command=self.toggle_technical_panel,
             fg_color="#31414a",
             hover_color="#3b4f59",
         )
-        self.toggle_technical_btn.grid(row=16, column=0, padx=20, pady=(0, 10), sticky="ew")
+        self.toggle_technical_btn.grid(row=14, column=0, padx=20, pady=(0, 10), sticky="ew")
 
         self.kill_btn = ctk.CTkButton(
-            self.sidebar_frame,
+            sidebar_content,
             text="Interromper",
             command=self.on_kill_switch,
             fg_color="#8c2f39",
             hover_color="#75262f",
         )
-        self.kill_btn.grid(row=18, column=0, padx=20, pady=(0, 20), sticky="ew")
+        self.kill_btn.grid(row=15, column=0, padx=20, pady=(0, 20), sticky="ew")
 
         self.update_backend_target_widgets()
+
+        self.bind_scroll_passthrough(self.sidebar_scroll_frame, self.sidebar_scroll_frame)
 
     def build_main_area(self):
         self.main_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
@@ -367,7 +422,7 @@ class JarvisApp(ctk.CTk):
             bg="#121416",
             relief="flat",
             bd=0,
-            opaqueresize=True,
+            opaqueresize=False,
             showhandle=False,
         )
         self.body_pane.grid(row=1, column=0, padx=18, sticky="nsew")
@@ -433,8 +488,8 @@ class JarvisApp(ctk.CTk):
         self.technical_frame.grid(row=1, column=0, padx=6, pady=(0, 8), sticky="nsew")
         self.technical_frame.grid_columnconfigure(0, weight=1)
 
-        self.body_pane.add(self.conversation_panel, stretch="always", minsize=320)
-        self.body_pane.add(self.technical_panel, stretch="never", minsize=150)
+        self.body_pane.add(self.conversation_panel, stretch="always", minsize=CONVERSATION_MIN_HEIGHT)
+        self.body_pane.add(self.technical_panel, stretch="never", minsize=TECHNICAL_MIN_HEIGHT)
 
         self.input_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
         self.input_frame.grid(row=2, column=0, padx=18, pady=(14, 18), sticky="ew")
@@ -499,8 +554,40 @@ class JarvisApp(ctk.CTk):
 
         self.body_pane.bind("<Configure>", self.on_body_pane_configure)
         self.input_editor_frame.bind("<Configure>", self.on_input_editor_resize)
-        self.schedule_input_resize()
+        self.bind_scroll_passthrough(self.conversation_panel, self.conversation_frame)
+        self.bind_scroll_passthrough(self.conversation_frame, self.conversation_frame)
+        self.bind_scroll_passthrough(self.technical_panel, self.technical_frame)
+        self.bind_scroll_passthrough(self.technical_frame, self.technical_frame)
+        self.schedule_input_resize(immediate=True)
         self.schedule_sash_positioning(force=True)
+
+    def bind_global_scroll_handlers(self):
+        self.bind_all("<MouseWheel>", self.on_global_mousewheel, add="+")
+        self.bind_all("<Button-4>", self.on_global_linux_scroll_up, add="+")
+        self.bind_all("<Button-5>", self.on_global_linux_scroll_down, add="+")
+
+    def on_window_configure(self, event=None):
+        if self._closing_ui:
+            return
+        if event is not None and getattr(event, "widget", None) is not self:
+            return
+        current_size = (self.winfo_width(), self.winfo_height())
+        if current_size[0] <= 0 or current_size[1] <= 0:
+            return
+        if current_size == self._last_root_size:
+            return
+
+        previous_size = self._last_root_size
+        self._last_root_size = current_size
+
+        if previous_size == (0, 0):
+            self.schedule_sash_positioning(force=True)
+            return
+
+        if max(abs(current_size[0] - previous_size[0]), abs(current_size[1] - previous_size[1])) >= SASH_RESIZE_THRESHOLD:
+            self.schedule_sash_positioning(force=True)
+        self.refresh_conversation_wraplengths()
+        self.apply_window_minsize_policy()
 
     def backend_target_mode(self):
         return "Local" if self.is_local_backend_host() else "Remoto"
@@ -526,15 +613,12 @@ class JarvisApp(ctk.CTk):
         current_height = self.body_pane.winfo_height()
         if current_height <= 0:
             return
-        if (
-            self._last_body_pane_height == current_height
-            and self._sash_initialized
-            and not self._technical_restore_requested
-        ):
+        if self._last_body_pane_height == current_height and self._sash_initialized and not self._technical_restore_requested:
             return
         self._last_body_pane_height = current_height
+        self.ensure_body_layout_bounds()
         if not self._sash_initialized or self._technical_restore_requested:
-            self.schedule_sash_positioning(force=self._technical_restore_requested)
+            self.schedule_sash_positioning(force=True)
 
     def on_input_editor_resize(self, event=None):
         if self._closing_ui:
@@ -545,38 +629,105 @@ class JarvisApp(ctk.CTk):
         if current_width <= 0 or current_width == self._last_input_width:
             return
         self._last_input_width = current_width
-        self.schedule_input_resize()
+        self.schedule_input_resize(immediate=True)
+
+    def apply_window_minsize_policy(self):
+        if self._closing_ui:
+            return
+        try:
+            # Keep minsize compatible with Ubuntu work area while preserving usability.
+            screen_w = self.winfo_screenwidth()
+            screen_h = self.winfo_screenheight()
+            target_min_w = min(980, max(WINDOW_MIN_WIDTH, screen_w - 160))
+            target_min_h = min(680, max(WINDOW_MIN_HEIGHT, screen_h - 200))
+            self.minsize(target_min_w, target_min_h)
+        except Exception:
+            pass
+
+    def get_body_split_limits(self):
+        total_height = self.body_pane.winfo_height()
+        if total_height <= 0:
+            return (0, 0, 0)
+
+        # Adapt limits to available space to avoid clipping when Ubuntu work area is short.
+        min_technical = min(TECHNICAL_MIN_HEIGHT, max(72, int(total_height * 0.42)))
+        min_conversation = min(CONVERSATION_MIN_HEIGHT, max(96, total_height - min_technical))
+
+        if min_conversation + min_technical > total_height:
+            min_conversation = max(72, total_height - min_technical)
+
+        max_conversation = max(min_conversation, total_height - min_technical)
+        return total_height, min_conversation, max_conversation
 
     def schedule_sash_positioning(self, force=False):
         if self._closing_ui or self.technical_panel_collapsed:
-            return
-        if self._sash_initialized and not (self._technical_restore_requested or force):
             return
         if self._sash_after_id:
             try:
                 self.after_cancel(self._sash_after_id)
             except Exception:
                 pass
-        self._sash_after_id = self.after(80, self.position_initial_sash)
+        delay = 0 if force else 40
+        self._sash_after_id = self.after(delay, self.position_initial_sash)
 
     def position_initial_sash(self):
         self._sash_after_id = None
         if self.technical_panel_collapsed:
             return
-        if self._sash_initialized and not self._technical_restore_requested:
-            return
         try:
-            total_height = self.body_pane.winfo_height()
+            total_height, min_conversation, max_conversation = self.get_body_split_limits()
             if total_height <= 0:
                 return
-            conversation_height = max(360, total_height - 240)
+            target_technical = max(72, min(TECHNICAL_MAX_HEIGHT, int(total_height * TECHNICAL_TARGET_RATIO)))
+            conversation_height = total_height - target_technical
+            conversation_height = min(max(conversation_height, min_conversation), max_conversation)
             current_sash_y = self.body_pane.sash_coord(0)[1]
-            if abs(current_sash_y - conversation_height) > 1:
+            if abs(current_sash_y - conversation_height) > 6 or not self._sash_initialized:
                 self.body_pane.sash_place(0, 0, conversation_height)
             self._sash_initialized = True
             self._technical_restore_requested = False
+            self.ensure_body_layout_bounds()
         except Exception:
             pass
+
+    def ensure_body_layout_bounds(self):
+        if self._closing_ui or self.technical_panel_collapsed:
+            return
+        try:
+            total_height, min_conversation, max_conversation = self.get_body_split_limits()
+            if total_height <= 0:
+                return
+            current_sash_y = self.body_pane.sash_coord(0)[1]
+            clamped = min(max(current_sash_y, min_conversation), max_conversation)
+            if abs(current_sash_y - clamped) > 4:
+                self.body_pane.sash_place(0, 0, clamped)
+        except Exception:
+            pass
+
+    def refresh_conversation_wraplengths(self):
+        if self._closing_ui:
+            return
+        try:
+            panel_width = self.conversation_panel.winfo_width()
+        except Exception:
+            return
+        if panel_width <= 0:
+            return
+        if abs(panel_width - self._last_conversation_wrap_width) < 12:
+            return
+        self._last_conversation_wrap_width = panel_width
+
+        for block in self.conversation_blocks:
+            body_label = block.get("body_label")
+            is_user = block.get("message_type") == "user"
+            if body_label is None:
+                continue
+            side_pad = 190 if is_user else 190
+            wraplength = max(220, panel_width - side_pad - CONVERSATION_WRAP_PADDING)
+            try:
+                body_label.configure(wraplength=wraplength)
+            except Exception:
+                pass
 
     def run_async_loop(self):
         self.async_loop = asyncio.new_event_loop()
@@ -645,15 +796,18 @@ class JarvisApp(ctk.CTk):
     def poll_ui_queue(self):
         if self._closing_ui or not self.winfo_exists():
             return
+        processed = 0
         try:
-            while True:
+            while processed < UI_QUEUE_MAX_BATCH:
                 payload = self.message_queue.get_nowait()
                 self.process_ws_message(payload)
+                processed += 1
         except queue.Empty:
             pass
 
         if self.winfo_exists():
-            self._poll_after_id = self.after(50, self.poll_ui_queue)
+            next_delay = 1 if processed >= UI_QUEUE_MAX_BATCH else UI_QUEUE_POLL_MS
+            self._poll_after_id = self.after(next_delay, self.poll_ui_queue)
 
     def process_ws_message(self, data):
         if self._closing_ui:
@@ -696,17 +850,20 @@ class JarvisApp(ctk.CTk):
 
     def clear_input_text(self):
         self.input_text.delete("1.0", "end")
-        self.schedule_input_resize()
+        self.schedule_input_resize(immediate=True)
         self.update_input_placeholder()
 
     def update_input_placeholder(self):
         has_content = bool(self.get_input_text().strip())
-        if has_content:
-            self.input_placeholder.place_forget()
-        else:
+        should_show = not has_content
+        if should_show and not self._placeholder_visible:
             self.input_placeholder.place(x=14, y=11)
+            self._placeholder_visible = True
+        elif not should_show and self._placeholder_visible:
+            self.input_placeholder.place_forget()
+            self._placeholder_visible = False
 
-    def schedule_input_resize(self):
+    def schedule_input_resize(self, immediate=False):
         if self._closing_ui:
             return
         if self._input_resize_after_id:
@@ -714,7 +871,8 @@ class JarvisApp(ctk.CTk):
                 self.after_cancel(self._input_resize_after_id)
             except Exception:
                 pass
-        self._input_resize_after_id = self.after(20, self.update_input_height)
+        delay = 0 if immediate else INPUT_RESIZE_DEBOUNCE_MS
+        self._input_resize_after_id = self.after(delay, self.update_input_height)
 
     def update_input_height(self):
         self._input_resize_after_id = None
@@ -730,8 +888,11 @@ class JarvisApp(ctk.CTk):
             self.input_text.configure(height=target_lines)
             self._current_input_lines = target_lines
         desired_height = max(48, target_lines * 22)
-        if abs(self.input_editor_frame.winfo_height() - desired_height) > 1:
+        if abs(self._last_input_editor_height - desired_height) > 1:
             self.input_editor_frame.configure(height=desired_height)
+            self._last_input_editor_height = desired_height
+        self.apply_window_minsize_policy()
+        self.ensure_body_layout_bounds()
         self.update_input_placeholder()
 
     def on_input_modified(self, _event=None):
@@ -739,11 +900,16 @@ class JarvisApp(ctk.CTk):
             self.input_text.edit_modified(False)
         except Exception:
             pass
-        self.schedule_input_resize()
+        content = self.get_input_text()
+        signature = (content.count("\n"), len(content))
+        if signature != self._last_input_signature:
+            self._last_input_signature = signature
+            self.schedule_input_resize()
+        self.update_input_placeholder()
 
     def on_input_shift_return(self, _event=None):
         self.input_text.insert("insert", "\n")
-        self.schedule_input_resize()
+        self.schedule_input_resize(immediate=True)
         return "break"
 
     def on_input_return(self, event=None):
@@ -969,6 +1135,13 @@ class JarvisApp(ctk.CTk):
         payload = data.get("data", {})
 
         if success:
+            if action == "execute_task":
+                self._assistant_stream_open = False
+                self.send_btn.configure(state="disabled")
+                self.set_input_enabled(False)
+                self.session_status.configure(text=f"{self.backend_target_display()} | Executando tarefa em andamento")
+                return
+
             if action == "get_status" and isinstance(payload, dict):
                 self.apply_state(payload)
                 return
@@ -1031,6 +1204,11 @@ class JarvisApp(ctk.CTk):
             self.append_technical_entry("system", f"Falha na acao de API key: {data.get('error', 'erro nao informado')}")
             return
 
+        if action == "execute_task":
+            self.send_btn.configure(state="normal" if self.connection_status == "connected" else "disabled")
+            self.set_input_enabled(True)
+            self._assistant_stream_open = False
+
         self.append_technical_entry("system", data.get("error", "A acao falhou."))
 
     def clear_history_views(self):
@@ -1045,12 +1223,14 @@ class JarvisApp(ctk.CTk):
 
     def render_history(self, history):
         self.clear_history_views()
+        self._assistant_stream_open = False
         for item in history:
+            message_type = item.get("message_type")
             self.append_stream_entry(
-                item.get("message_type"),
+                message_type,
                 item.get("content", ""),
                 timestamp=item.get("timestamp"),
-                merge_if_possible=True,
+                merge_if_possible=message_type in MERGEABLE_TECHNICAL_TYPES,
             )
         self.scroll_conversation_to_bottom(force=True)
         self.scroll_technical_to_bottom(force=True)
@@ -1062,20 +1242,44 @@ class JarvisApp(ctk.CTk):
         if not content:
             return
 
-        if message_type in USER_MESSAGE_TYPES:
+        normalized_type = str(message_type or "").strip().lower()
+
+        if normalized_type in USER_MESSAGE_TYPES:
+            self._assistant_stream_open = False
             self.append_conversation_entry(
-                message_type,
+                normalized_type,
                 content,
                 timestamp=timestamp,
-                merge_if_possible=merge_if_possible,
+                merge_if_possible=False,
             )
+        elif normalized_type in ASSISTANT_MESSAGE_TYPES:
+            self.append_conversation_entry(
+                normalized_type,
+                content,
+                timestamp=timestamp,
+                merge_if_possible=merge_if_possible and self._assistant_stream_open,
+            )
+            self._assistant_stream_open = True
         else:
             self.append_technical_entry(
-                message_type,
+                normalized_type,
                 content,
                 timestamp=timestamp,
                 merge_if_possible=merge_if_possible,
             )
+            if normalized_type in {"status", "system"} and self.is_terminal_status_event(content):
+                self._assistant_stream_open = False
+
+    @staticmethod
+    def is_terminal_status_event(content):
+        normalized = str(content or "").strip().lower()
+        if not normalized:
+            return False
+        return (
+            "tarefa concluida" in normalized
+            or normalized.startswith("erro:")
+            or "tarefa interrompida" in normalized
+        )
 
     def append_conversation_entry(self, message_type, content, timestamp=None, merge_if_possible=True):
         content = str(content)
@@ -1087,7 +1291,10 @@ class JarvisApp(ctk.CTk):
             and self.last_conversation_block["message_type"] == message_type
         ):
             self.last_conversation_block["content"] += content
-            self.update_text_widget(self.last_conversation_block["textbox"], self.last_conversation_block["content"])
+            self.update_conversation_body_label(
+                self.last_conversation_block.get("body_label"),
+                self.last_conversation_block["content"],
+            )
             self.scroll_conversation_to_bottom(force=should_follow)
             return
 
@@ -1143,20 +1350,24 @@ class JarvisApp(ctk.CTk):
             hover_color="#40515e",
         )
         copy_btn.grid(row=0, column=2, sticky="e")
+        self.bind_scroll_passthrough(block_frame, self.conversation_frame)
+        self.bind_scroll_passthrough(header_frame, self.conversation_frame)
+        self.bind_scroll_passthrough(copy_btn, self.conversation_frame)
 
-        textbox = self.create_text_widget(
+        body_label = self.create_conversation_body_label(
             block_frame,
             content,
             foreground=body_color,
             background=frame_color,
             font_size=14 if is_user else 15,
-            monospace=False,
+            is_user=is_user,
         )
-        textbox.grid(row=1, column=0, padx=14, pady=(0, 12), sticky="ew")
+        body_label.grid(row=1, column=0, padx=14, pady=(0, 12), sticky="ew")
+        self.bind_scroll_passthrough(body_label, self.conversation_frame)
 
         block = {
             "frame": block_frame,
-            "textbox": textbox,
+            "body_label": body_label,
             "message_type": message_type,
             "content": content,
             "timestamp": timestamp_label,
@@ -1164,8 +1375,33 @@ class JarvisApp(ctk.CTk):
         copy_btn.configure(command=lambda block_ref=block: self.copy_to_clipboard(block_ref["content"]))
         self.conversation_blocks.append(block)
         self.last_conversation_block = block
+        self.refresh_conversation_wraplengths()
 
         self.scroll_conversation_to_bottom(force=should_follow)
+
+    def create_conversation_body_label(self, parent, content, foreground, background, font_size, is_user):
+        panel_width = max(self.conversation_panel.winfo_width(), 700)
+        side_pad = 190 if is_user else 190
+        wraplength = max(220, panel_width - side_pad - CONVERSATION_WRAP_PADDING)
+        label = ctk.CTkLabel(
+            parent,
+            text=str(content),
+            anchor="w",
+            justify="left",
+            wraplength=wraplength,
+            text_color=foreground,
+            fg_color=background,
+            font=ctk.CTkFont(size=font_size),
+        )
+        return label
+
+    def update_conversation_body_label(self, label, content):
+        if label is None:
+            return
+        try:
+            label.configure(text=str(content))
+        except Exception:
+            pass
 
     def append_technical_entry(self, message_type, content, timestamp=None, merge_if_possible=True):
         if content is None:
@@ -1185,7 +1421,11 @@ class JarvisApp(ctk.CTk):
             and message_type in MERGEABLE_TECHNICAL_TYPES
         ):
             self.last_technical_block["content"] += content
-            self.update_text_widget(self.last_technical_block["textbox"], self.last_technical_block["content"])
+            self.append_text_delta(
+                self.last_technical_block["textbox"],
+                content,
+                self.last_technical_block["content"],
+            )
             self.scroll_technical_to_bottom(force=should_follow)
             return
 
@@ -1240,6 +1480,9 @@ class JarvisApp(ctk.CTk):
             hover_color="#40515e",
         )
         copy_btn.grid(row=0, column=2, sticky="e")
+        self.bind_scroll_passthrough(block_frame, self.technical_frame)
+        self.bind_scroll_passthrough(header_frame, self.technical_frame)
+        self.bind_scroll_passthrough(copy_btn, self.technical_frame)
 
         textbox = self.create_text_widget(
             block_frame,
@@ -1248,6 +1491,7 @@ class JarvisApp(ctk.CTk):
             background=background,
             font_size=12 if effective_type in MERGEABLE_TECHNICAL_TYPES else 11,
             monospace=effective_type in MERGEABLE_TECHNICAL_TYPES,
+            scroll_target=self.technical_frame,
         )
         textbox.grid(row=1, column=0, padx=12, pady=(0, 12), sticky="ew")
 
@@ -1263,7 +1507,7 @@ class JarvisApp(ctk.CTk):
         self.last_technical_block = block
         self.scroll_technical_to_bottom(force=should_follow)
 
-    def create_text_widget(self, parent, content, foreground, background, font_size, monospace=False):
+    def create_text_widget(self, parent, content, foreground, background, font_size, monospace=False, scroll_target=None):
         text_widget = tk.Text(
             parent,
             wrap="word",
@@ -1289,6 +1533,7 @@ class JarvisApp(ctk.CTk):
         text_widget.configure(font=widget_font)
         text_widget.insert("1.0", content)
         text_widget.configure(state="disabled")
+        self.bind_scroll_passthrough(text_widget, scroll_target)
         return text_widget
 
     def update_text_widget(self, widget, content):
@@ -1297,14 +1542,141 @@ class JarvisApp(ctk.CTk):
         widget.insert("1.0", content)
         widget.configure(height=self.estimate_text_lines(content), state="disabled")
 
+    def append_text_delta(self, widget, delta_text, full_content):
+        delta_text = str(delta_text or "")
+        if not delta_text:
+            return
+        try:
+            widget.configure(state="normal")
+            widget.insert("end", delta_text)
+            target_height = self.estimate_text_lines(full_content)
+            current_height = int(widget.cget("height"))
+            if current_height != target_height:
+                widget.configure(height=target_height)
+            widget.configure(state="disabled")
+        except Exception:
+            self.update_text_widget(widget, full_content)
+
     def estimate_text_lines(self, content):
         content = str(content)
         lines = content.count("\n") + 1
         wrap_bonus = max(0, len(content) // 90)
-        return max(2, min(18, lines + wrap_bonus))
+        return max(2, min(14, lines + wrap_bonus))
 
     def get_scroll_canvas(self, scrollable_frame):
         return getattr(scrollable_frame, "_parent_canvas", None)
+
+    def is_descendant_widget(self, widget, ancestor):
+        current = widget
+        while current is not None:
+            if current == ancestor:
+                return True
+            parent_name = current.winfo_parent() if hasattr(current, "winfo_parent") else ""
+            if not parent_name:
+                break
+            try:
+                current = current.nametowidget(parent_name)
+            except Exception:
+                break
+        return False
+
+    def resolve_scroll_target(self, event_widget):
+        if event_widget is not None:
+            if self.is_descendant_widget(event_widget, self.input_editor_frame):
+                return None
+            if self.is_descendant_widget(event_widget, self.sidebar_scroll_frame):
+                return self.sidebar_scroll_frame
+            if self.is_descendant_widget(event_widget, self.technical_panel):
+                return self.technical_frame
+            if self.is_descendant_widget(event_widget, self.conversation_panel):
+                return self.conversation_frame
+
+        try:
+            hovered = self.winfo_containing(self.winfo_pointerx(), self.winfo_pointery())
+        except Exception:
+            hovered = None
+        if hovered is not None:
+            if self.is_descendant_widget(hovered, self.input_editor_frame):
+                return None
+            if self.is_descendant_widget(hovered, self.sidebar_scroll_frame):
+                return self.sidebar_scroll_frame
+            if self.is_descendant_widget(hovered, self.technical_panel):
+                return self.technical_frame
+        return self.conversation_frame
+
+    def on_global_linux_scroll_up(self, event):
+        return self.route_global_scroll(event, -2)
+
+    def on_global_linux_scroll_down(self, event):
+        return self.route_global_scroll(event, 2)
+
+    def on_global_mousewheel(self, event):
+        delta = event.delta if event is not None else 0
+        if delta == 0:
+            return None
+        if abs(delta) >= 120:
+            units = -max(1, int(abs(delta) / 120)) if delta > 0 else max(1, int(abs(delta) / 120))
+        else:
+            units = -1 if delta > 0 else 1
+        return self.route_global_scroll(event, units)
+
+    def bind_scroll_passthrough(self, widget, target_frame):
+        if widget is None:
+            return
+        widget.bind(
+            "<MouseWheel>",
+            lambda event, frame=target_frame: self.route_scroll_to_target(event, frame),
+            add="+",
+        )
+        widget.bind(
+            "<Button-4>",
+            lambda event, frame=target_frame: self.route_scroll_to_target(event, frame, linux_units=-2),
+            add="+",
+        )
+        widget.bind(
+            "<Button-5>",
+            lambda event, frame=target_frame: self.route_scroll_to_target(event, frame, linux_units=2),
+            add="+",
+        )
+
+    def route_scroll_to_target(self, event, target_frame, linux_units=None):
+        if self._closing_ui or target_frame is None:
+            return None
+        if self.is_descendant_widget(getattr(event, "widget", None), self.input_editor_frame):
+            return None
+        if linux_units is not None:
+            units = linux_units
+        else:
+            delta = getattr(event, "delta", 0)
+            if delta == 0:
+                return None
+            if abs(delta) >= 120:
+                units = -max(1, int(abs(delta) / 120)) if delta > 0 else max(1, int(abs(delta) / 120))
+            else:
+                units = -1 if delta > 0 else 1
+        canvas = self.get_scroll_canvas(target_frame)
+        if canvas is None:
+            return None
+        try:
+            canvas.yview_scroll(units, "units")
+            return "break"
+        except Exception:
+            return None
+
+    def route_global_scroll(self, event, units):
+        if self._closing_ui or units == 0:
+            return None
+        target = self.resolve_scroll_target(getattr(event, "widget", None))
+        if target is None:
+            return None
+        canvas = self.get_scroll_canvas(target)
+        if canvas is None:
+            return None
+        try:
+            canvas.yview_scroll(units, "units")
+            return "break"
+        except Exception:
+            return None
 
     def should_follow_scroll(self, scrollable_frame):
         canvas = self.get_scroll_canvas(scrollable_frame)
@@ -1324,6 +1696,15 @@ class JarvisApp(ctk.CTk):
             if canvas is not None:
                 canvas.update_idletasks()
                 canvas.yview_moveto(1.0)
+                if self._conversation_autoscroll_after_id:
+                    try:
+                        self.after_cancel(self._conversation_autoscroll_after_id)
+                    except Exception:
+                        pass
+                self._conversation_autoscroll_after_id = self.after(
+                    24,
+                    lambda c=canvas: c.yview_moveto(1.0),
+                )
         except Exception:
             pass
 
@@ -1371,6 +1752,7 @@ class JarvisApp(ctk.CTk):
         prompt = self.get_input_text().strip()
         if not prompt:
             return
+        self._assistant_stream_open = False
         if self.send_action_async("execute_task", {"prompt": prompt}):
             self.clear_input_text()
 

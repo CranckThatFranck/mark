@@ -1,4 +1,5 @@
 %define debug_package %{nil}
+%global _unitdir /usr/lib/systemd/system
 Name:           jarvis-backend
 Version:        1.0.0
 Release:        1%{?dist}

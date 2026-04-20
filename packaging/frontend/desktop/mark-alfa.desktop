@@ -2,7 +2,7 @@
 Name=Mark Alfa
 Comment=Agente Jarvis Local
 Exec=/opt/jarvis/venv/bin/python /opt/jarvis/frontend/app.py
-Icon=/opt/jarvis/frontend/assets/icon.png
+Icon=/opt/jarvis/frontend/assets/jarvisicon.svg
 Terminal=false
 Type=Application
 Categories=Utility;Development;

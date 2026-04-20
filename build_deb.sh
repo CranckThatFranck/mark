@@ -25,6 +25,7 @@ prepare_frontend_package() {
 
     mkdir -p "$pkg_dir/DEBIAN" "$pkg_dir/opt/jarvis/frontend" "$pkg_dir/usr/share/applications"
     tar -C "$ROOT_DIR/src/frontend" --exclude='__pycache__' --exclude='*.pyc' -cf - . | tar -C "$pkg_dir/opt/jarvis/frontend" -xf -
+    install -Dm0644 "$ROOT_DIR/jarvisicon.svg" "$pkg_dir/opt/jarvis/frontend/assets/jarvisicon.svg"
     cp -a "$ROOT_DIR/requirements-frontend.txt" "$pkg_dir/opt/jarvis/frontend/requirements.txt"
     cp -a "$ROOT_DIR/packaging/frontend/desktop/mark-alfa.desktop" "$pkg_dir/usr/share/applications/mark-alfa.desktop"
     cp -a "$ROOT_DIR/packaging/deb/frontend/control" "$pkg_dir/DEBIAN/control"

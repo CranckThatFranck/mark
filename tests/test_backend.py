@@ -375,9 +375,10 @@ with tempfile.TemporaryDirectory() as temp_dir:
         state.append_history("code", "print('ok')")
         session_state = load_session_state()
 
-        assert len(session_state["history"]) == 2
-        assert session_state["history"][0]["content"] == "Ola mundo"
-        assert session_state["history"][1]["message_type"] == "code"
+        assert len(session_state["history"]) == 3
+        assert session_state["history"][0]["content"] == "Ola"
+        assert session_state["history"][1]["content"] == " mundo"
+        assert session_state["history"][2]["message_type"] == "code"
         assert "timestamp" in session_state["history"][0]
         print("Test Session History Merge: OK")
 

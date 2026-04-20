@@ -274,6 +274,9 @@ Os scripts de instalacao tambem garantem:
 - criacao de `/var/lib/jarvis-mark`
 - criacao de `/var/log/jarvis`
 
+No frontend empacotado, o desktop entry usa:
+- `Icon=/opt/jarvis/frontend/assets/jarvisicon.svg`
+
 ## Credenciais por ambiente vs credenciais persistidas
 
 ### Usando apenas ambiente

@@ -6,6 +6,19 @@ VERSION="1.0.0"
 BUILD_DIR="$(mktemp -d /tmp/mark-rpm-build.XXXXXX)"
 RPMBUILD_DIR="${HOME}/rpmbuild"
 
+if ! command -v rpmbuild >/dev/null 2>&1; then
+    if [[ "${MARK_RPM_BUILD_MODE:-}" != "container" ]] && command -v podman >/dev/null 2>&1; then
+        exec podman run --rm \
+            -v "$ROOT_DIR":"$ROOT_DIR":Z \
+            -w "$ROOT_DIR" \
+            registry.fedoraproject.org/fedora:41 \
+            bash -lc 'dnf -y install rpm-build tar findutils >/dev/null && MARK_RPM_BUILD_MODE=container bash ./build_rpm.sh'
+    fi
+
+    echo "rpmbuild not available and no container fallback could be started" >&2
+    exit 127
+fi
+
 mkdir -p "$RPMBUILD_DIR/SOURCES"
 
 prepare_backend_source() {
@@ -24,6 +37,7 @@ prepare_frontend_source() {
     mkdir -p "$source_dir/frontend" "$source_dir/packaging/frontend/desktop"
 
     tar -C "$ROOT_DIR/src/frontend" --exclude='__pycache__' --exclude='*.pyc' -cf - . | tar -C "$source_dir/frontend" -xf -
+    install -Dm0644 "$ROOT_DIR/jarvisicon.svg" "$source_dir/frontend/assets/jarvisicon.svg"
     cp -a "$ROOT_DIR/packaging/frontend/desktop/mark-alfa.desktop" "$source_dir/packaging/frontend/desktop/"
     cp -a "$ROOT_DIR/requirements-frontend.txt" "$source_dir/requirements-frontend.txt"
 
@@ -33,8 +47,15 @@ prepare_frontend_source() {
 prepare_backend_source
 prepare_frontend_source
 
-rpmbuild -ba "$ROOT_DIR/packaging/rpm/backend/jarvis-backend.spec"
-rpmbuild -ba "$ROOT_DIR/packaging/rpm/frontend/jarvis-frontend.spec"
+rpmbuild -ba \
+    --define "_topdir $RPMBUILD_DIR" \
+    --define "_dbpath %{_topdir}/.rpmdb" \
+    --define "_unitdir /usr/lib/systemd/system" \
+    "$ROOT_DIR/packaging/rpm/backend/jarvis-backend.spec"
+rpmbuild -ba \
+    --define "_topdir $RPMBUILD_DIR" \
+    --define "_dbpath %{_topdir}/.rpmdb" \
+    "$ROOT_DIR/packaging/rpm/frontend/jarvis-frontend.spec"
 
 find "$RPMBUILD_DIR/RPMS" -name "jarvis-backend-$VERSION-*.rpm" -exec cp -a {} "$ROOT_DIR/" \;
 find "$RPMBUILD_DIR/RPMS" -name "jarvis-frontend-$VERSION-*.rpm" -exec cp -a {} "$ROOT_DIR/" \;
